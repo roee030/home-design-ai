@@ -216,14 +216,64 @@ const STYLE_PROMPTS: Record<string, string> = {
 const NEGATIVE_PROMPT =
   'blurry, low quality, distorted, people, text, watermark, ugly, oversaturated, cartoon, painting'
 
-async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as GenerateRoomBody
-  const { imageBase64, style } = body
+// ─── Gemini image-to-image generation ────────────────────────────────────────
 
-  if (!imageBase64 || !style) {
-    return json({ error: 'Missing required fields: imageBase64, style' }, 400)
+async function generateRoomWithGemini(imageBase64: string, style: string, env: Env): Promise<string> {
+  if (!env.GEMINI_API_KEY) throw new Error('No Gemini key')
+
+  const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
+  const prompt = `You are an expert interior designer. Redesign this room in ${styleDesc} style.
+
+Rules:
+- Keep the EXACT same room layout, camera angle, perspective and room dimensions
+- Keep windows, doors and architectural elements in the same positions
+- Replace all furniture, materials and decor with beautiful ${style} style items
+- Preserve natural lighting direction and intensity
+- Output a professional interior design photograph quality image
+- Do NOT add people, text, logos or watermarks`
+
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${env.GEMINI_API_KEY}`
+
+  const res = await fetch(geminiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: {
+        responseModalities: ['IMAGE'],
+        temperature: 0.35,
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Gemini image gen ${res.status}: ${err}`)
   }
 
+  const data = (await res.json()) as {
+    candidates?: Array<{
+      content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
+    }>
+    error?: { message: string }
+  }
+
+  if (data.error) throw new Error(data.error.message)
+
+  const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+  if (!imagePart?.inlineData) throw new Error('Gemini returned no image part')
+
+  return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
+}
+
+// ─── fal.ai image-to-image generation (fallback) ─────────────────────────────
+
+async function generateRoomWithFal(imageBase64: string, style: string, env: Env): Promise<string> {
   const prompt = STYLE_PROMPTS[style] ?? `${style} interior design, professional photography, high quality, realistic lighting`
 
   const falRes = await fetch('https://fal.run/fal-ai/flux/dev/image-to-image', {
@@ -247,25 +297,47 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
 
   if (!falRes.ok) {
     const err = await falRes.text()
-    console.error('[fal.ai] error:', falRes.status, err)
-    return json({ error: 'Image generation failed', detail: err }, 502)
+    throw new Error(`fal.ai ${falRes.status}: ${err}`)
   }
 
   const falData = (await falRes.json()) as {
-    images?: Array<{ url: string; width: number; height: number }>
+    images?: Array<{ url: string }>
     error?: string
   }
 
-  if (falData.error) {
-    return json({ error: falData.error }, 502)
-  }
-
+  if (falData.error) throw new Error(falData.error)
   const imageUrl = falData.images?.[0]?.url
-  if (!imageUrl) {
-    return json({ error: 'fal.ai returned no image' }, 502)
+  if (!imageUrl) throw new Error('fal.ai returned no image')
+  return imageUrl
+}
+
+async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as GenerateRoomBody
+  const { imageBase64, style } = body
+
+  if (!imageBase64 || !style) {
+    return json({ error: 'Missing required fields: imageBase64, style' }, 400)
   }
 
-  return json({ imageUrl })
+  // Try Gemini image generation first — same API key, no extra cost
+  try {
+    const imageUrl = await generateRoomWithGemini(imageBase64, style, env)
+    console.log('[Gemini Image] success')
+    return json({ imageUrl })
+  } catch (geminiErr) {
+    console.warn('[Gemini Image] failed, trying fal.ai:', String(geminiErr))
+  }
+
+  // Fallback: fal.ai
+  try {
+    const imageUrl = await generateRoomWithFal(imageBase64, style, env)
+    console.log('[fal.ai] success')
+    return json({ imageUrl })
+  } catch (falErr) {
+    const errMsg = String(falErr)
+    console.error('[fal.ai] error:', errMsg)
+    return json({ error: 'Image generation failed', detail: errMsg }, 502)
+  }
 }
 
 // ─── fal.ai: text-to-image room template generation ──────────────────────

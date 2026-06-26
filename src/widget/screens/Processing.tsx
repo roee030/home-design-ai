@@ -192,7 +192,7 @@ export function Processing({ tenant }: Props) {
         <p className={styles.errorHint}>Falling back to curated demo design…</p>
       )}
 
-      <p className={styles.poweredBy}>Powered by Gemini AI × fal.ai</p>
+      <p className={styles.poweredBy}>Powered by Gemini AI</p>
     </div>
   )
 }
