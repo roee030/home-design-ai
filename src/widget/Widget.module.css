@@ -7,7 +7,7 @@
   -webkit-backdrop-filter: blur(6px);
 }
 
-/* ─── Compact screens (upload / style / budget) ─── */
+/* ─── Embedded panel (default) ─── */
 .panel {
   position: fixed;
   top: 50%;
@@ -28,26 +28,54 @@
   font-family: var(--tenant-font, Inter, sans-serif);
 }
 
-/* ─── Canvas / Processing full-screen ─── */
+/* Wider for canvas/processing in embedded mode */
 .fullscreen {
   width: min(920px, 96vw);
   height: min(720px, 94vh);
 }
 
+/* ─── Full-page mode (widget IS the app) ─── */
+.fullPage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0 !important;
+  box-shadow: none;
+  transform: none !important;
+  background: var(--tenant-surface, #FAFAF8);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--tenant-font, Inter, sans-serif);
+  overflow: hidden;
+}
+
+/* ─── Header ─── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 0;
+  padding: 14px 16px 0;
   flex-shrink: 0;
 }
 
+.headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brandMark {
+  color: var(--tenant-accent, #C9A84C);
+  font-size: 14px;
+}
+
 .headerTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tenant-primary, #1A1A2E);
+  letter-spacing: 0.01em;
 }
 
 .backBtn,
@@ -62,6 +90,7 @@
   transition: color 0.15s, background 0.15s;
   font-family: var(--tenant-font, Inter, sans-serif);
   line-height: 1;
+  min-width: 36px;
 }
 
 .backBtn:hover,
@@ -70,6 +99,7 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* ─── Body ─── */
 .body {
   flex: 1;
   overflow: hidden;
@@ -87,8 +117,7 @@
 }
 
 @media (max-width: 520px) {
-  .panel,
-  .fullscreen {
+  .panel:not(.fullPage) {
     top: auto;
     left: 0;
     right: 0;

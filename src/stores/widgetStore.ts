@@ -11,6 +11,7 @@ interface WidgetState {
   // Set after AI processing completes
   generatedImageUrl: string | null
   styleDescription: string | null
+  hasAIAnalysis: boolean
 
   open: () => void
   close: () => void
@@ -20,6 +21,7 @@ interface WidgetState {
   setBudget: (budget: number) => void
   setGeneratedImage: (url: string) => void
   setStyleDescription: (desc: string) => void
+  setHasAIAnalysis: (v: boolean) => void
   reset: () => void
 }
 
@@ -31,6 +33,7 @@ const INITIAL = {
   budget: 5000,
   generatedImageUrl: null,
   styleDescription: null,
+  hasAIAnalysis: false,
 }
 
 export const useWidgetStore = create<WidgetState>((set) => ({
@@ -43,5 +46,6 @@ export const useWidgetStore = create<WidgetState>((set) => ({
   setBudget: (budget) => set({ budget }),
   setGeneratedImage: (url) => set({ generatedImageUrl: url }),
   setStyleDescription: (desc) => set({ styleDescription: desc }),
+  setHasAIAnalysis: (v) => set({ hasAIAnalysis: v }),
   reset: () => set(INITIAL),
 }))

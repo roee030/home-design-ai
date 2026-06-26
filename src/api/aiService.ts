@@ -27,7 +27,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoomResult> {
-  if (!API_BASE && !import.meta.env.DEV) {
+  if (!API_BASE) {
     logger.info('No VITE_API_URL — using mock analysis')
     return getMockAnalysis()
   }
@@ -38,7 +38,7 @@ export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoo
       catalog: MOCK_TENANT.catalog,
     })
     logger.info('Room analysis complete', { products: result.selectedProducts.length })
-    return result
+    return { ...result, isAIGenerated: true }
   } catch (err) {
     logger.warn('analyzeRoom failed — falling back to mock', { err: String(err) })
     return getMockAnalysis()
@@ -75,5 +75,6 @@ function getMockAnalysis(): AnalyzeRoomResult {
     totalPrice: MOCK_TENANT.catalog.slice(0, 5).reduce((s, p) => s + p.basePrice, 0),
     styleDescription:
       'A beautifully curated space that balances simplicity with warmth, featuring natural materials, a soothing neutral palette, and intentional product placement from your catalog.',
+    isAIGenerated: false,
   }
 }

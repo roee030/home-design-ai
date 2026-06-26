@@ -17,10 +17,35 @@
 .roomImage {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain = no cropping → pin % coords match image exactly */
+  object-fit: contain;
   display: block;
   pointer-events: none;
   user-select: none;
+}
+
+/* Transparent absolute overlay sized to the ACTUAL displayed image area.
+   Pins inside it are positioned in % of the real image, not the container. */
+.pinOverlay {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Warning when Gemini failed and we have no real placement data */
+.noAiBadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20, 20, 30, 0.82);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 12px;
+  color: rgba(255,200,80,0.9);
+  white-space: nowrap;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
 }
 
 /* ─── AI style description card ─── */

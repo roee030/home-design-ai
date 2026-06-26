@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { useWidgetStore } from '@/stores/widgetStore'
@@ -12,16 +12,55 @@ import styles from './CanvasEditor.module.css'
 interface Props { tenant: TenantConfig }
 
 export function CanvasEditor({ tenant }: Props) {
-  const items = useCanvasStore((s) => s.items)
+  const items        = useCanvasStore((s) => s.items)
   const activeItemId = useCanvasStore((s) => s.activeItemId)
-  const setActive = useCanvasStore((s) => s.setActive)
-  const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
-  const styleDescription = useWidgetStore((s) => s.styleDescription)
-  const [cartAdded, setCartAdded] = useState(false)
-  const [showDesc, setShowDesc] = useState(true)
+  const setActive    = useCanvasStore((s) => s.setActive)
 
-  // Use AI-generated room image if available, else fall back to stock photo
+  const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
+  const styleDescription  = useWidgetStore((s) => s.styleDescription)
+  const hasAIAnalysis     = useWidgetStore((s) => s.hasAIAnalysis)
+
+  const [cartAdded, setCartAdded] = useState(false)
+  const [showDesc, setShowDesc]   = useState(true)
+
+  // Image coordinates: track where the image is actually rendered
+  // (object-fit: contain may add letterbox bars)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const imgRef       = useRef<HTMLImageElement>(null)
+  const [imgBounds, setImgBounds] = useState({ left: 0, top: 0, width: 0, height: 0 })
+
   const roomImage = generatedImageUrl ?? ROOM_IMAGE_URL
+
+  const recalcBounds = useCallback(() => {
+    const img = imgRef.current
+    const box = containerRef.current
+    if (!img || !box || !img.naturalWidth) return
+
+    const cW = box.clientWidth
+    const cH = box.clientHeight
+    const scale = Math.min(cW / img.naturalWidth, cH / img.naturalHeight)
+    const w = img.naturalWidth * scale
+    const h = img.naturalHeight * scale
+
+    setImgBounds({
+      left:   (cW - w) / 2,
+      top:    (cH - h) / 2,
+      width:  w,
+      height: h,
+    })
+  }, [])
+
+  useEffect(() => {
+    const img = imgRef.current
+    if (!img) return
+    img.addEventListener('load', recalcBounds)
+    window.addEventListener('resize', recalcBounds)
+    if (img.complete && img.naturalWidth) recalcBounds()
+    return () => {
+      img.removeEventListener('load', recalcBounds)
+      window.removeEventListener('resize', recalcBounds)
+    }
+  }, [roomImage, recalcBounds])
 
   const totalPrice = items.reduce((sum, item) => {
     const product = MOCK_TENANT.catalog.find((p) => p.id === item.productId)
@@ -40,18 +79,51 @@ export function CanvasEditor({ tenant }: Props) {
 
   return (
     <div className={styles.container}>
-      {/* Canvas area */}
+      {/* ── Canvas area ── */}
       <div
+        ref={containerRef}
         className={styles.canvasWrapper}
-        data-canvas
         onClick={(e) => {
           if ((e.target as HTMLElement).closest('[class*="pinRoot"]')) return
           setActive(null)
         }}
       >
-        <img src={roomImage} alt="AI-designed room" className={styles.roomImage} draggable={false} />
+        {/* Room image — object-fit: contain so coordinates align with pins */}
+        <img
+          ref={imgRef}
+          src={roomImage}
+          alt="AI-designed room"
+          className={styles.roomImage}
+          draggable={false}
+          onLoad={recalcBounds}
+        />
 
-        {/* AI style description card — dismissable */}
+        {/* Pin overlay — positioned exactly over the displayed image area */}
+        {hasAIAnalysis && imgBounds.width > 0 && (
+          <div
+            className={styles.pinOverlay}
+            data-canvas
+            style={{
+              left:   imgBounds.left,
+              top:    imgBounds.top,
+              width:  imgBounds.width,
+              height: imgBounds.height,
+            }}
+          >
+            {items.map((item) => (
+              <ProductLayer key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+
+        {/* No AI analysis fallback message */}
+        {!hasAIAnalysis && (
+          <div className={styles.noAiBadge}>
+            ⚠ AI positioning unavailable — check your Gemini API key
+          </div>
+        )}
+
+        {/* Style description overlay */}
         <AnimatePresence>
           {showDesc && styleDescription && (
             <motion.div
@@ -67,25 +139,21 @@ export function CanvasEditor({ tenant }: Props) {
           )}
         </AnimatePresence>
 
-        {items.map((item) => (
-          <ProductLayer key={item.id} item={item} />
-        ))}
-
-        {/* Hint overlay — fades out after first interaction */}
+        {/* Hint badge */}
         <div className={styles.hintBadge}>
           <span>✦</span> Hover pins · Swap colors · Drag to reposition
         </div>
       </div>
 
-      {/* Bottom bar */}
+      {/* ── Bottom bar ── */}
       <div className={styles.bottomBar}>
-        {/* Item chips — reactive to variant color changes */}
+        {/* Item chips — color dot updates live on variant swap */}
         <div className={styles.chipRow}>
           {items.map((item) => {
             const product = MOCK_TENANT.catalog.find((p) => p.id === item.productId)
             const variant = product?.variants.find((v) => v.id === item.variantId)
             if (!product || !variant) return null
-            const price = product.basePrice + (variant.priceDelta ?? 0)
+            const price    = product.basePrice + (variant.priceDelta ?? 0)
             const isActive = item.id === activeItemId
             return (
               <motion.button
@@ -108,7 +176,6 @@ export function CanvasEditor({ tenant }: Props) {
           })}
         </div>
 
-        {/* Total + CTA */}
         <div className={styles.ctaRow}>
           <div className={styles.totalBlock}>
             <span className={styles.totalLabel}>Total</span>

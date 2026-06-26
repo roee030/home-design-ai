@@ -177,21 +177,22 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
 // ─── fal.ai: AI room image generation (img2img) ───────────────────────────
 
+// Prefixed with layout-preservation instruction so fal.ai keeps room structure
 const STYLE_PROMPTS: Record<string, string> = {
   japandi:
-    'japandi interior design style room, natural wood furniture, neutral beige linen, washi paper light, zen minimalism, professional interior photography, 8k uhd, soft morning light',
+    'same room layout and furniture arrangement, japandi interior design style, natural wood furniture, neutral beige linen, washi paper light, zen minimalism, professional interior photography, 8k uhd, soft morning light',
   'mid-century':
-    'mid century modern living room, warm walnut wood, mustard yellow accent chair, geometric shapes, retro floor lamp, professional photography, warm golden light, 8k',
+    'same room layout and furniture arrangement, mid century modern style, warm walnut wood, mustard yellow accent chair, geometric shapes, retro floor lamp, professional photography, warm golden light, 8k',
   scandinavian:
-    'scandinavian interior design, light birch furniture, white walls, grey wool throw, hygge candles, cosy minimalism, professional interior photography, 8k',
+    'same room layout and furniture arrangement, scandinavian interior design, light birch furniture, white walls, grey wool throw, hygge candles, cosy minimalism, professional interior photography, 8k',
   industrial:
-    'industrial loft interior, exposed concrete wall, black steel frame shelves, Edison pendant bulbs, reclaimed wood table, moody atmospheric lighting, 8k',
+    'same room layout and furniture arrangement, industrial loft interior, exposed concrete wall, black steel frame shelves, Edison pendant bulbs, reclaimed wood table, moody atmospheric lighting, 8k',
   coastal:
-    'coastal beach house living room, whitewashed driftwood furniture, navy and white stripe cushions, rattan pendant light, breezy sheer curtains, golden afternoon light, 8k',
+    'same room layout and furniture arrangement, coastal beach house style, whitewashed driftwood furniture, navy and white stripe cushions, rattan pendant light, breezy sheer curtains, golden afternoon light, 8k',
   bohemian:
-    'bohemian eclectic living room, layered kilim rugs, macrame wall hanging, rattan chair, terracotta pots with plants, warm earthy tones, golden hour light, 8k',
+    'same room layout and furniture arrangement, bohemian eclectic style, layered kilim rugs, macrame wall hanging, rattan chair, terracotta pots with plants, warm earthy tones, golden hour light, 8k',
   contemporary:
-    'contemporary modern living room, sleek marble coffee table, grey linen sofa, geometric brass floor lamp, minimalist art print, soft diffused studio light, 8k',
+    'same room layout and furniture arrangement, contemporary modern interior, sleek marble coffee table, grey linen sofa, geometric brass floor lamp, minimalist art print, soft diffused studio light, 8k',
 }
 
 const NEGATIVE_PROMPT =
@@ -217,7 +218,7 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
       image_url: `data:image/jpeg;base64,${imageBase64}`,
       prompt,
       negative_prompt: NEGATIVE_PROMPT,
-      strength: 0.72,
+      strength: 0.38,
       num_inference_steps: 28,
       guidance_scale: 3.5,
       num_images: 1,

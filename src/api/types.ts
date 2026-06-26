@@ -18,6 +18,7 @@ export interface AnalyzeRoomResult {
   selectedProducts: AIProductPlacement[]
   totalPrice: number
   styleDescription: string
+  isAIGenerated: boolean
 }
 
 export interface GenerateRoomParams {

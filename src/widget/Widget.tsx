@@ -9,22 +9,30 @@ import { CanvasEditor } from './screens/CanvasEditor'
 import type { TenantConfig } from '@/types'
 import styles from './Widget.module.css'
 
-interface Props { tenant: TenantConfig }
-
-const SCREEN_TITLES: Record<string, string> = {
-  upload: 'Room Upload',
-  style: 'Style',
-  budget: 'Budget',
-  processing: '',
-  canvas: 'Your Design',
+interface Props {
+  tenant: TenantConfig
+  fullPage?: boolean
 }
 
-export function Widget({ tenant }: Props) {
-  const { isOpen, screen, close, goTo } = useWidgetStore()
+const SCREEN_TITLES: Record<string, string> = {
+  upload:     'Design My Room',
+  style:      'Choose a Style',
+  budget:     'Set Your Budget',
+  processing: '',
+  canvas:     'Your AI Design',
+}
+
+export function Widget({ tenant, fullPage }: Props) {
+  const { isOpen, screen, close, goTo, reset } = useWidgetStore()
 
   const handleClose = () => {
-    analytics.widgetClosed(tenant.id, screen)
-    close()
+    if (fullPage) {
+      // In full-page mode "close" → restart flow
+      reset()
+    } else {
+      analytics.widgetClosed(tenant.id, screen)
+      close()
+    }
   }
 
   const handleBack = () => {
@@ -32,40 +40,62 @@ export function Widget({ tenant }: Props) {
     if (prev[screen]) goTo(prev[screen] as typeof screen)
   }
 
-  const canGoBack = ['style', 'budget', 'canvas'].includes(screen)
+  const canGoBack   = ['style', 'budget', 'canvas'].includes(screen)
   const isFullScreen = screen === 'canvas' || screen === 'processing'
+
+  const panelClass = [
+    styles.panel,
+    !fullPage && isFullScreen ? styles.fullscreen : '',
+    fullPage ? styles.fullPage : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
-            className={styles.backdrop}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleClose}
-          />
+          {/* Backdrop — only in embedded (non-fullPage) mode */}
+          {!fullPage && (
+            <motion.div
+              className={styles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleClose}
+            />
+          )}
 
           <motion.div
-            className={`${styles.panel} ${isFullScreen ? styles.fullscreen : ''}`}
-            initial={{ opacity: 0, y: 40, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.97 }}
+            className={panelClass}
+            initial={fullPage ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.97 }}
+            animate={fullPage ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={fullPage ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 360, damping: 32 }}
           >
             {screen !== 'processing' && (
               <div className={styles.header}>
                 <button
                   className={styles.backBtn}
-                  onClick={handleBack}
+                  onClick={canGoBack ? handleBack : undefined}
                   style={{ visibility: canGoBack ? 'visible' : 'hidden' }}
                   aria-label="Go back"
                 >
                   ←
                 </button>
-                <span className={styles.headerTitle}>{SCREEN_TITLES[screen]}</span>
-                <button className={styles.closeBtn} onClick={handleClose} aria-label="Close widget">✕</button>
+
+                <div className={styles.headerCenter}>
+                  {fullPage && (
+                    <span className={styles.brandMark}>✦</span>
+                  )}
+                  <span className={styles.headerTitle}>{SCREEN_TITLES[screen]}</span>
+                </div>
+
+                <button
+                  className={styles.closeBtn}
+                  onClick={handleClose}
+                  aria-label={fullPage ? 'Start over' : 'Close'}
+                >
+                  {fullPage && screen !== 'upload' ? '↺' : '✕'}
+                </button>
               </div>
             )}
 
@@ -79,11 +109,11 @@ export function Widget({ tenant }: Props) {
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.22 }}
                 >
-                  {screen === 'upload' && <RoomUpload tenant={tenant} />}
-                  {screen === 'style' && <StyleSelector tenant={tenant} />}
-                  {screen === 'budget' && <BudgetInput tenant={tenant} />}
+                  {screen === 'upload'     && <RoomUpload tenant={tenant} />}
+                  {screen === 'style'      && <StyleSelector tenant={tenant} />}
+                  {screen === 'budget'     && <BudgetInput tenant={tenant} />}
                   {screen === 'processing' && <Processing tenant={tenant} />}
-                  {screen === 'canvas' && <CanvasEditor tenant={tenant} />}
+                  {screen === 'canvas'     && <CanvasEditor tenant={tenant} />}
                 </motion.div>
               </AnimatePresence>
             </div>

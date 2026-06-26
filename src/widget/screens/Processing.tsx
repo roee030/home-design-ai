@@ -42,7 +42,7 @@ const PHASE_PROGRESS: Record<Phase, number> = {
 interface Props { tenant: TenantConfig }
 
 export function Processing({ tenant }: Props) {
-  const { uploadedImageUrl, selectedStyle, budget, goTo, setGeneratedImage, setStyleDescription } =
+  const { uploadedImageUrl, selectedStyle, budget, goTo, setGeneratedImage, setStyleDescription, setHasAIAnalysis } =
     useWidgetStore()
   const setCanvasItems = useCanvasStore((s) => s.setItems)
   const resetCanvas = useCanvasStore((s) => s.reset)
@@ -70,18 +70,17 @@ export function Processing({ tenant }: Props) {
         const imageBase64 = await imageUrlToBase64(uploadedImageUrl)
         logger.info('Image compressed to base64', { bytes: imageBase64.length })
 
-        // ── 2. Run analysis + generation in parallel ────────────────────
-        setPhase('analyzing')
+        // ── 2. Generate restyled room image first ───────────────────────
+        // Sequential (not parallel) so Gemini can analyze the GENERATED image,
+        // ensuring pin positions match what the user actually sees.
+        setPhase('generating')
+        const generatedResult = await generateRoom({ imageBase64, style: selectedStyle })
 
-        const [analysisResult, generatedResult] = await Promise.all([
-          analyzeRoom({ imageBase64, style: selectedStyle, budget }),
-          (async () => {
-            // Let the "analyzing" label show briefly before switching to "generating"
-            await delay(1800)
-            setPhase('generating')
-            return generateRoom({ imageBase64, style: selectedStyle })
-          })(),
-        ])
+        // ── 3. Analyze the GENERATED image for product placement ────────
+        // This guarantees pin coordinates match the AI-generated composition.
+        setPhase('analyzing')
+        const generatedBase64 = await imageUrlToBase64(generatedResult.imageUrl)
+        const analysisResult = await analyzeRoom({ imageBase64: generatedBase64, style: selectedStyle, budget })
 
         // ── 3. Apply product placements ─────────────────────────────────
         setPhase('matching')
@@ -105,6 +104,7 @@ export function Processing({ tenant }: Props) {
         setCanvasItems(canvasItems)
         setGeneratedImage(generatedResult.imageUrl)
         setStyleDescription(analysisResult.styleDescription)
+        setHasAIAnalysis(analysisResult.isAIGenerated)
 
         await delay(700)
 
