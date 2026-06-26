@@ -29,9 +29,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Set VITE_API_URL in GitHub repo Settings → Secrets → Actions
-          # Value: https://shoptheroom-api.<subdomain>.workers.dev
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: https://shoptheroom-api.mr-roee-angel.workers.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
