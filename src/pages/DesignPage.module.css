@@ -1,0 +1,74 @@
+.page {
+  min-height: 100dvh;
+  background: var(--tenant-surface, #FAFAF8);
+  font-family: var(--tenant-font, Inter, sans-serif);
+}
+
+/* Normal screens (upload / style / budget) — centered content below nav */
+.mainNormal {
+  padding-top: 64px; /* nav height */
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Canvas + processing — full bleed, no nav */
+.mainFull {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Step header (back button + label) */
+.stepHeader {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 0;
+  gap: 12px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(26, 26, 46, 0.5);
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  font-family: var(--tenant-font, Inter, sans-serif);
+}
+
+.backBtn:hover {
+  color: var(--tenant-primary, #1A1A2E);
+  background: rgba(26, 26, 46, 0.06);
+}
+
+.stepLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tenant-primary, #1A1A2E);
+  letter-spacing: 0.01em;
+}
+
+/* Screen wrappers */
+.screenNormal {
+  width: 100%;
+  max-width: 600px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 40px;
+}
+
+.screenFull {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

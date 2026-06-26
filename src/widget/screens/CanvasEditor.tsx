@@ -99,7 +99,7 @@ export function CanvasEditor({ tenant }: Props) {
         />
 
         {/* Pin overlay — positioned exactly over the displayed image area */}
-        {hasAIAnalysis && imgBounds.width > 0 && (
+        {imgBounds.width > 0 && (
           <div
             className={styles.pinOverlay}
             data-canvas
@@ -116,11 +116,9 @@ export function CanvasEditor({ tenant }: Props) {
           </div>
         )}
 
-        {/* No AI analysis fallback message */}
+        {/* Subtle badge when using mock positions (Gemini unavailable) */}
         {!hasAIAnalysis && (
-          <div className={styles.noAiBadge}>
-            ⚠ AI positioning unavailable — check your Gemini API key
-          </div>
+          <div className={styles.demoBadge}>📍 Demo layout</div>
         )}
 
         {/* Style description overlay */}
