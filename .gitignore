@@ -1,4 +1,5 @@
 node_modules
+workers/node_modules
 dist
 dist-ssr
 *.local
@@ -7,3 +8,4 @@ dist-ssr
 !.env.example
 .DS_Store
 *.log
+.wrangler

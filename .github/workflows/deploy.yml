@@ -25,7 +25,12 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - run: npm run build
+      - name: Build
+        run: npm run build
+        env:
+          # Set VITE_API_URL in GitHub repo Settings → Secrets → Actions
+          # Value: https://shoptheroom-api.<subdomain>.workers.dev
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

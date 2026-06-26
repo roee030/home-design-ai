@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCanvasStore } from '@/stores/canvasStore'
+import { useWidgetStore } from '@/stores/widgetStore'
 import { MOCK_TENANT } from '@/constants/mockTenant'
 import { ROOM_IMAGE_URL } from '@/constants/mockCanvas'
 import { ProductLayer } from '@/widget/components/ProductLayer'
@@ -14,7 +15,13 @@ export function CanvasEditor({ tenant }: Props) {
   const items = useCanvasStore((s) => s.items)
   const activeItemId = useCanvasStore((s) => s.activeItemId)
   const setActive = useCanvasStore((s) => s.setActive)
+  const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
+  const styleDescription = useWidgetStore((s) => s.styleDescription)
   const [cartAdded, setCartAdded] = useState(false)
+  const [showDesc, setShowDesc] = useState(true)
+
+  // Use AI-generated room image if available, else fall back to stock photo
+  const roomImage = generatedImageUrl ?? ROOM_IMAGE_URL
 
   const totalPrice = items.reduce((sum, item) => {
     const product = MOCK_TENANT.catalog.find((p) => p.id === item.productId)
@@ -42,7 +49,23 @@ export function CanvasEditor({ tenant }: Props) {
           setActive(null)
         }}
       >
-        <img src={ROOM_IMAGE_URL} alt="AI-designed room" className={styles.roomImage} draggable={false} />
+        <img src={roomImage} alt="AI-designed room" className={styles.roomImage} draggable={false} />
+
+        {/* AI style description card — dismissable */}
+        <AnimatePresence>
+          {showDesc && styleDescription && (
+            <motion.div
+              className={styles.descCard}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ delay: 0.4, duration: 0.3 }}
+            >
+              <span className={styles.descText}>{styleDescription}</span>
+              <button className={styles.descClose} onClick={() => setShowDesc(false)}>✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {items.map((item) => (
           <ProductLayer key={item.id} item={item} />

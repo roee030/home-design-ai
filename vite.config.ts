@@ -14,4 +14,13 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  // In dev, proxy /api/* to the local Cloudflare Worker (wrangler dev on :8787)
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
 })
