@@ -81,6 +81,14 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
   contemporary: 'Contemporary Modern — clean lines, neutral palette, statement lighting, minimalist luxury',
 }
 
+function detectMimeType(base64: string): string {
+  if (base64.startsWith('/9j/')) return 'image/jpeg'
+  if (base64.startsWith('iVBORw0KGgo')) return 'image/png'
+  if (base64.startsWith('R0lGOD')) return 'image/gif'
+  if (base64.startsWith('UklGR')) return 'image/webp'
+  return 'image/jpeg'
+}
+
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
   const { imageBase64, style, budget, catalog } = body
@@ -145,52 +153,65 @@ Return ONLY valid JSON — no markdown fences, no explanation:
   "styleDescription": "string"
 }`
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`
+  // Try multiple models — quota limit on one may not apply to another
+  const ANALYSIS_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+  ]
 
-  const geminiRes = await fetch(geminiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
-            { text: prompt },
-          ],
-        },
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
+        { text: prompt },
       ],
-      generationConfig: {
-        response_mime_type: 'application/json',
-        temperature: 0.2,
-        maxOutputTokens: 1024,
-      },
-    }),
+    }],
+    generationConfig: {
+      response_mime_type: 'application/json',
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+    },
   })
 
-  if (!geminiRes.ok) {
-    const err = await geminiRes.text()
-    console.error('[Gemini] error:', geminiRes.status, err)
-    return json({ error: 'AI analysis failed', detail: err }, 502)
+  let lastErr = ''
+  for (const model of ANALYSIS_MODELS) {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`
+    const geminiRes = await fetch(geminiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
+
+    if (!geminiRes.ok) {
+      lastErr = await geminiRes.text()
+      console.warn(`[Gemini/${model}] failed ${geminiRes.status}:`, lastErr.slice(0, 120))
+      continue
+    }
+
+    const geminiData = (await geminiRes.json()) as {
+      candidates?: Array<{ content: { parts: Array<{ text: string }> } }>
+      error?: { message: string }
+    }
+
+    if (geminiData.error) {
+      lastErr = geminiData.error.message
+      console.warn(`[Gemini/${model}] API error:`, lastErr.slice(0, 120))
+      continue
+    }
+
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+    try {
+      const result = JSON.parse(rawText)
+      console.log(`[Gemini/${model}] success`)
+      return json(result)
+    } catch {
+      lastErr = `JSON parse failed: ${rawText.slice(0, 80)}`
+      console.warn(`[Gemini/${model}] JSON parse failed`)
+      continue
+    }
   }
 
-  const geminiData = (await geminiRes.json()) as {
-    candidates?: Array<{ content: { parts: Array<{ text: string }> } }>
-    error?: { message: string }
-  }
-
-  if (geminiData.error) {
-    return json({ error: geminiData.error.message }, 502)
-  }
-
-  const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
-
-  try {
-    const result = JSON.parse(rawText)
-    return json(result)
-  } catch {
-    console.error('[Gemini] JSON parse failed:', rawText)
-    return json({ error: 'AI returned invalid JSON', raw: rawText }, 502)
-  }
+  // All models exhausted
+  console.error('[Gemini] all models failed, last error:', lastErr.slice(0, 200))
+  return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
 // ─── fal.ai: AI room image generation (img2img) ───────────────────────────
@@ -232,43 +253,48 @@ Rules:
 - Output a professional interior design photograph quality image
 - Do NOT add people, text, logos or watermarks`
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${env.GEMINI_API_KEY}`
+  const IMAGE_GEN_MODELS = [
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image',
+    'gemini-2.0-flash-preview-image-generation',
+  ]
 
-  const res = await fetch(geminiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
-          { text: prompt },
-        ],
-      }],
-      generationConfig: {
-        responseModalities: ['IMAGE'],
-        temperature: 0.35,
-      },
-    }),
+  const imgBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: { responseModalities: ['IMAGE'], temperature: 0.35 },
   })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini image gen ${res.status}: ${err}`)
+  for (const model of IMAGE_GEN_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: imgBody })
+
+    if (!res.ok) {
+      console.warn(`[Gemini Image/${model}] failed ${res.status}`)
+      continue
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
+      }>
+      error?: { message: string }
+    }
+
+    if (data.error) { console.warn(`[Gemini Image/${model}] error:`, data.error.message); continue }
+
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+    if (!imagePart?.inlineData) { console.warn(`[Gemini Image/${model}] no image part`); continue }
+
+    console.log(`[Gemini Image/${model}] success`)
+    return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
   }
 
-  const data = (await res.json()) as {
-    candidates?: Array<{
-      content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
-    }>
-    error?: { message: string }
-  }
-
-  if (data.error) throw new Error(data.error.message)
-
-  const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
-  if (!imagePart?.inlineData) throw new Error('Gemini returned no image part')
-
-  return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
+  throw new Error('Gemini image generation: all models failed')
 }
 
 // ─── fal.ai image-to-image generation (fallback) ─────────────────────────────
