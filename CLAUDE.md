@@ -1,6 +1,106 @@
-# home-design-ai
+# home-design-ai — ShopTheRoom AI
 
-> AI-powered home design platform. [Product overview to be defined.]
+> **B2B2C Spatial Commerce SaaS.** Retailers embed our lightweight JS widget in their site. Shoppers upload a room photo, pick a style, and receive an AI-generated redesign using only that retailer's actual catalog — within their budget. Every furniture piece is an interactive layer: hover for price, swap colors, drag to reposition, add to cart.
+
+## Product Overview
+
+### What We Build
+**ShopTheRoom AI** is a B2B2C widget embedded in furniture retailer websites (IKEA, West Elm, local chains) via a `<script>` tag. The retailer defines their catalog once; every customer gets a personalized AI room design using only that retailer's products.
+
+### The End-User Flow
+1. Shopper visits retailer site → clicks **"Design My Room"** widget launcher
+2. Uploads a photo of their room (living room, bedroom, patio, etc.)
+3. Picks a design style (Japandi, Mid-Century, Scandinavian, etc.) + budget
+4. AI generates a fully redesigned room — every piece is from the retailer's actual catalog, within budget
+5. Every item is an **interactive canvas layer**: hover → price card, swap color variants, drag to reposition
+6. "Add Room to Cart" → `window.postMessage` to host site's checkout
+
+### B2B Integration Model
+- Embedded as an isolated JS widget (Shadow DOM / iframe)
+- Host CSS cannot contaminate widget styles
+- Retailer provides catalog via Google Shopping XML feed
+- Widget communicates with host checkout via `window.postMessage`
+- Each tenant gets a config object: colors, fonts, border radius, catalog endpoint
+
+### Analytics & Logging (Required in Every Build)
+Every user action must be tracked:
+- `widget_opened`, `widget_closed(screen)`
+- `room_uploaded`, `style_selected(style)`, `budget_set(amount)`
+- `design_generated(style)`, `product_hovered(productId)`
+- `variant_swapped(productId, variantId)`, `product_moved(productId)`
+- `add_to_cart(productIds[], totalPrice)`
+
+Ship to: **Segment / Amplitude / GA4** (stub in dev, real in prod).
+Structured logger: dev → console, prod → Sentry breadcrumbs.
+
+---
+
+## Tech Stack
+
+### Frontend Widget
+- **Framework**: React 18 + TypeScript (strict) + Vite
+- **State**: Zustand (widget state machine + canvas items)
+- **Animations**: Framer Motion (all transitions, no CSS-only animations for state jumps)
+- **Styling**: CSS Modules + CSS Custom Properties (tenant tokens) — **no Tailwind** (leaks into host)
+- **Isolation**: Widget runs inside Shadow DOM / isolated container
+- **Host integration**: `window.postMessage` for checkout events
+
+### Tenant Theming (MANDATORY)
+All UI uses CSS variables mapped to tenant config. Zero hardcoded colors:
+```css
+--tenant-primary     /* brand dark color */
+--tenant-accent      /* CTA / highlight */
+--tenant-text        /* body text */
+--tenant-surface     /* card/background */
+--tenant-radius-button
+--tenant-font
+```
+
+### Backend (future)
+- **AI Pipeline**: Gemini Vision API + Stable Diffusion (room redesign)
+- **Catalog Ingestion**: Google Shopping XML → Firestore, CLIP auto-tagging
+- **Functions**: Cloudflare Workers
+- **Auth**: Firebase Auth (tenant dashboard)
+- **Storage**: Supabase Storage
+
+### Architecture Rules
+- **Max ~150 lines per file**
+- Canvas moves/color swaps = client-side only (Zustand + CSS) — never call backend AI
+- Positions stored as percentages for responsive scaling
+- All styles scoped to CSS Modules — nothing leaks to host page
+- Communicate with host ONLY via `window.postMessage`
+
+### Project Structure
+```
+src/
+  types/           # All TypeScript interfaces
+  constants/       # Design styles, mock tenant, mock canvas
+  stores/          # Zustand (widgetStore, canvasStore)
+  hooks/           # useTenant (CSS var injection)
+  utils/           # logger.ts, analytics.ts
+  widget/
+    Widget.tsx     # Main panel (AnimatePresence screen router)
+    screens/       # RoomUpload, StyleSelector, BudgetInput, Processing, CanvasEditor
+    components/    # WidgetLauncher, ProductLayer, ProductInfoCard
+  demo/            # Simulated retailer page (GitHub Pages demo)
+```
+
+## Git & Workflow
+- Branch: `feat/`, `fix/`, `chore/`, `refactor/`
+- Commits: conventional (`feat:`, `fix:`, `chore:`, `test:`)
+- **Every task ends with a PR** into master
+- GitHub Actions auto-deploys master → GitHub Pages: `https://roee030.github.io/home-design-ai/`
+- `base: '/home-design-ai/'` in vite.config.ts
+
+## Environment
+- `.env.example` documents all required vars
+- Never commit `.env`
+- API keys via env vars only
+
+---
+
+# Appendix: Clean Software Design Principles
+
 ## AI Assistant Operational Commands
 
 ## React Web Operational Commands
