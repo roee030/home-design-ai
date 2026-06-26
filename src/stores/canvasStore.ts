@@ -9,6 +9,7 @@ interface CanvasState {
   setItems: (items: CanvasItem[]) => void
   updateItem: (id: string, patch: Partial<CanvasItem>) => void
   swapVariant: (itemId: string, variantId: string) => void
+  swapProduct: (itemId: string, productId: string, variantId: string) => void
   setActive: (id: string | null) => void
   setHovered: (id: string | null) => void
   reset: () => void
@@ -30,6 +31,13 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((state) => ({
       items: state.items.map((item) =>
         item.id === itemId ? { ...item, variantId } : item
+      ),
+    })),
+
+  swapProduct: (itemId, productId, variantId) =>
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === itemId ? { ...item, productId, variantId } : item
       ),
     })),
 

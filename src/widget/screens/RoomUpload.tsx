@@ -1,15 +1,55 @@
-import { useRef } from 'react'
-import { motion } from 'framer-motion'
+import { useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useWidgetStore } from '@/stores/widgetStore'
 import { analytics } from '@/utils/analytics'
 import type { TenantConfig } from '@/types'
 import styles from './RoomUpload.module.css'
+
+const TEMPLATES = [
+  {
+    id: 'living-room',
+    label: 'Living Room',
+    emoji: '🛋️',
+    url: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=1200&q=85',
+  },
+  {
+    id: 'bedroom',
+    label: 'Bedroom',
+    emoji: '🛏️',
+    url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=1200&q=85',
+  },
+  {
+    id: 'dining-room',
+    label: 'Dining Room',
+    emoji: '🍽️',
+    url: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=1200&q=85',
+  },
+  {
+    id: 'kitchen',
+    label: 'Kitchen',
+    emoji: '🍳',
+    url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&q=85',
+  },
+  {
+    id: 'home-office',
+    label: 'Home Office',
+    emoji: '💻',
+    url: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=1200&q=85',
+  },
+  {
+    id: 'kids-room',
+    label: 'Kids Room',
+    emoji: '🧸',
+    url: 'https://images.unsplash.com/photo-1555436169-28b81f5ef2e4?w=1200&q=85',
+  },
+]
 
 interface Props { tenant: TenantConfig }
 
 export function RoomUpload({ tenant }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { setUploadedImage, goTo } = useWidgetStore()
+  const [hoveredTemplate, setHoveredTemplate] = useState<string | null>(null)
 
   const handleFile = (file: File) => {
     const url = URL.createObjectURL(file)
@@ -29,21 +69,31 @@ export function RoomUpload({ tenant }: Props) {
     if (file) handleFile(file)
   }
 
-  const handleDemoClick = () => {
-    setUploadedImage('https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200&q=80')
+  const handleTemplate = (url: string) => {
+    setUploadedImage(url)
     analytics.roomUploaded(tenant.id)
     goTo('style')
   }
 
   return (
     <div className={styles.container}>
-      <motion.h2 className={styles.title} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.h2
+        className={styles.title}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
         Upload Your Room
       </motion.h2>
-      <motion.p className={styles.subtitle} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        Take a photo or upload an image of the room you want to redesign
+      <motion.p
+        className={styles.subtitle}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        Upload a photo or choose a template room below
       </motion.p>
 
+      {/* Upload dropzone */}
       <motion.div
         className={styles.dropzone}
         onClick={() => inputRef.current?.click()}
@@ -57,19 +107,61 @@ export function RoomUpload({ tenant }: Props) {
         <span className={styles.uploadIcon}>📷</span>
         <p className={styles.dropText}>Click to upload or drag & drop</p>
         <p className={styles.dropHint}>JPG, PNG up to 20MB</p>
-        <input ref={inputRef} type="file" accept="image/*" className={styles.hiddenInput} onChange={handleInput} />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className={styles.hiddenInput}
+          onChange={handleInput}
+        />
       </motion.div>
 
-      <div className={styles.divider}><span>or</span></div>
+      {/* Room templates */}
+      <div className={styles.divider}><span>or choose a template</span></div>
 
-      <motion.button
-        className={styles.demoBtn}
-        onClick={handleDemoClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+      <motion.div
+        className={styles.templateGrid}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
       >
-        ✦ Try with a demo room
-      </motion.button>
+        {TEMPLATES.map((t, i) => (
+          <motion.button
+            key={t.id}
+            className={`${styles.templateCard} ${hoveredTemplate === t.id ? styles.templateCardHover : ''}`}
+            onClick={() => handleTemplate(t.url)}
+            onMouseEnter={() => setHoveredTemplate(t.id)}
+            onMouseLeave={() => setHoveredTemplate(null)}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.28 + i * 0.04 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <div className={styles.templateImgWrap}>
+              <img src={t.url} alt={t.label} className={styles.templateImg} />
+              <div className={styles.templateOverlay} />
+            </div>
+            <div className={styles.templateLabel}>
+              <span className={styles.templateEmoji}>{t.emoji}</span>
+              {t.label}
+            </div>
+          </motion.button>
+        ))}
+      </motion.div>
+
+      <AnimatePresence>
+        {hoveredTemplate && (
+          <motion.p
+            className={styles.templateHint}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+          >
+            Click to use this room as your design base
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

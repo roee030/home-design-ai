@@ -59,6 +59,11 @@ interface GenerateRoomBody {
   style: string
 }
 
+interface GenerateTemplateBody {
+  roomType: string
+  style?: string
+}
+
 // ─── Gemini: room analysis + product matching ─────────────────────────────
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
@@ -250,6 +255,70 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
   return json({ imageUrl })
 }
 
+// ─── fal.ai: text-to-image room template generation ──────────────────────
+
+const ROOM_TYPE_PROMPTS: Record<string, string> = {
+  'living-room':
+    'modern living room interior, stylish sofa, coffee table, floor lamp, hardwood floor, large window, professional interior photography, natural golden light, 8k',
+  'bedroom':
+    'modern bedroom interior, king size bed with linen bedding, bedside tables, soft warm lighting, wooden floor, professional interior photography, 8k',
+  'dining-room':
+    'elegant dining room interior, round dining table, 4 chairs, statement pendant lighting, natural wood accents, professional interior photography, 8k',
+  'kitchen':
+    'modern kitchen interior, white shaker cabinets, marble countertop, kitchen island with bar stools, pendant lights, professional interior photography, 8k',
+  'home-office':
+    'home office interior, large wooden desk, ergonomic chair, bookshelves, plants, floor-to-ceiling windows, natural light, professional photography, 8k',
+  'kids-room':
+    'children bedroom interior, single bed with colourful duvet, study desk, wooden toy shelf, pastel walls, professional interior photography, 8k',
+}
+
+async function handleGenerateTemplate(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as GenerateTemplateBody
+  const { roomType, style } = body
+
+  if (!roomType) {
+    return json({ error: 'Missing required field: roomType' }, 400)
+  }
+
+  const base   = ROOM_TYPE_PROMPTS[roomType] ?? `${roomType} interior, professional photography, 8k`
+  const prompt = style ? `${base}, ${STYLE_DESCRIPTIONS[style] ?? style} aesthetic` : base
+
+  const falRes = await fetch('https://fal.run/fal-ai/flux/dev', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${env.FAL_AI_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+      negative_prompt: 'people, text, watermark, blurry, low quality, cartoon, distorted',
+      image_size: 'landscape_4_3',
+      num_inference_steps: 24,
+      guidance_scale: 3.5,
+      num_images: 1,
+      enable_safety_checker: false,
+    }),
+  })
+
+  if (!falRes.ok) {
+    const err = await falRes.text()
+    console.error('[fal.ai template] error:', falRes.status, err)
+    return json({ error: 'Template generation failed', detail: err }, 502)
+  }
+
+  const falData = (await falRes.json()) as {
+    images?: Array<{ url: string; width: number; height: number }>
+    error?: string
+  }
+
+  if (falData.error) return json({ error: falData.error }, 502)
+
+  const imageUrl = falData.images?.[0]?.url
+  if (!imageUrl) return json({ error: 'fal.ai returned no image' }, 502)
+
+  return json({ imageUrl })
+}
+
 // ─── Main fetch handler ───────────────────────────────────────────────────
 
 export default {
@@ -267,6 +336,8 @@ export default {
       res = await handleAnalyzeRoom(request, env)
     } else if (url.pathname === '/api/generate-room' && request.method === 'POST') {
       res = await handleGenerateRoom(request, env)
+    } else if (url.pathname === '/api/generate-template' && request.method === 'POST') {
+      res = await handleGenerateTemplate(request, env)
     } else if (url.pathname === '/api/health') {
       res = json({ status: 'ok', ts: new Date().toISOString() })
     } else {

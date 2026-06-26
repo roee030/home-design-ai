@@ -16,7 +16,7 @@ export function StyleSelector({ tenant }: Props) {
   }
 
   const handleNext = () => {
-    if (selectedStyle) goTo('budget')
+    if (selectedStyle) goTo('processing')
   }
 
   return (

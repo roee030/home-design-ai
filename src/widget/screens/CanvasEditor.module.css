@@ -174,6 +174,80 @@
   font-weight: 600;
 }
 
+/* Swap similar items row */
+.swapRow {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.swapLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.38);
+  padding: 0 2px;
+}
+
+.swapScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.swapScroll::-webkit-scrollbar { display: none; }
+
+.swapCard {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: var(--tenant-font, Inter, sans-serif);
+  width: 80px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.swapCard:hover {
+  border-color: var(--tenant-accent, #C9A84C);
+  background: rgba(201, 168, 76, 0.1);
+}
+
+.swapThumb {
+  width: 48px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+
+.swapName {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.swapPrice {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--tenant-accent, #C9A84C);
+}
+
 /* CTA row */
 .ctaRow {
   display: flex;

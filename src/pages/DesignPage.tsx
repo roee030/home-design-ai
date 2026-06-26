@@ -4,7 +4,6 @@ import { useWidgetStore } from '@/stores/widgetStore'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { RoomUpload } from '@/widget/screens/RoomUpload'
 import { StyleSelector } from '@/widget/screens/StyleSelector'
-import { BudgetInput } from '@/widget/screens/BudgetInput'
 import { Processing } from '@/widget/screens/Processing'
 import { CanvasEditor } from '@/widget/screens/CanvasEditor'
 import { NavBar } from '@/components/NavBar'
@@ -14,7 +13,6 @@ import styles from './DesignPage.module.css'
 const STEP_LABELS: Partial<Record<string, string>> = {
   upload:     'Upload Your Room',
   style:      'Choose a Style',
-  budget:     'Set Your Budget',
   processing: '',
   canvas:     'Your AI Design',
 }
@@ -35,13 +33,13 @@ export function DesignPage() {
 
   const handleBack = () => {
     const prev: Partial<Record<string, string>> = {
-      style: 'upload', budget: 'style', canvas: 'upload',
+      style: 'upload', canvas: 'upload',
     }
     const target = prev[screen]
     if (target) goTo(target as Parameters<typeof goTo>[0])
   }
 
-  const canGoBack = ['style', 'budget', 'canvas'].includes(screen)
+  const canGoBack = ['style', 'canvas'].includes(screen)
 
   return (
     <div className={styles.page}>
@@ -73,7 +71,6 @@ export function DesignPage() {
           >
             {screen === 'upload'     && <RoomUpload tenant={MOCK_TENANT} />}
             {screen === 'style'      && <StyleSelector tenant={MOCK_TENANT} />}
-            {screen === 'budget'     && <BudgetInput tenant={MOCK_TENANT} />}
             {screen === 'processing' && <Processing tenant={MOCK_TENANT} />}
             {screen === 'canvas'     && <CanvasEditor tenant={MOCK_TENANT} />}
           </motion.div>

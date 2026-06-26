@@ -15,6 +15,7 @@ export function CanvasEditor({ tenant }: Props) {
   const items        = useCanvasStore((s) => s.items)
   const activeItemId = useCanvasStore((s) => s.activeItemId)
   const setActive    = useCanvasStore((s) => s.setActive)
+  const swapProduct  = useCanvasStore((s) => s.swapProduct)
 
   const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
   const styleDescription  = useWidgetStore((s) => s.styleDescription)
@@ -173,6 +174,37 @@ export function CanvasEditor({ tenant }: Props) {
             )
           })}
         </div>
+
+        {/* ── Swap similar items (shows when a pin is active) ── */}
+        {activeItemId && (() => {
+          const activeItem    = items.find((i) => i.id === activeItemId)
+          const activeProduct = activeItem && MOCK_TENANT.catalog.find((p) => p.id === activeItem.productId)
+          const similar       = activeProduct
+            ? MOCK_TENANT.catalog.filter((p) => p.category === activeProduct.category && p.id !== activeProduct.id)
+            : []
+          if (!activeProduct || !similar.length) return null
+          return (
+            <div className={styles.swapRow}>
+              <span className={styles.swapLabel}>↔ Swap {activeProduct.category}</span>
+              <div className={styles.swapScroll}>
+                {similar.map((p) => (
+                  <motion.button
+                    key={p.id}
+                    className={styles.swapCard}
+                    onClick={() => swapProduct(activeItemId, p.id, p.variants[0].id)}
+                    whileHover={{ y: -2, scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    layout
+                  >
+                    <img src={p.thumbnailUrl} alt={p.name} className={styles.swapThumb} />
+                    <span className={styles.swapName}>{p.name.split(' ').slice(0, 2).join(' ')}</span>
+                    <span className={styles.swapPrice}>₪{p.basePrice.toLocaleString()}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         <div className={styles.ctaRow}>
           <div className={styles.totalBlock}>
