@@ -236,7 +236,7 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
       image_url: `data:image/jpeg;base64,${imageBase64}`,
       prompt,
       negative_prompt: NEGATIVE_PROMPT,
-      strength: 0.38,
+      strength: 0.18,
       num_inference_steps: 28,
       guidance_scale: 3.5,
       num_images: 1,

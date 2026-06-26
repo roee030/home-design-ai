@@ -151,9 +151,11 @@ export function CanvasEditor({ tenant }: Props) {
           </div>
         )}
 
-        {/* Subtle badge when using mock positions (Gemini unavailable) */}
+        {/* Badge when AI analysis unavailable */}
         {!hasAIAnalysis && (
-          <div className={styles.demoBadge}>📍 Demo layout</div>
+          <div className={styles.demoBadge}>
+            {items.length === 0 ? '⚡ AI analysis unavailable — pins coming soon' : '📍 Demo layout'}
+          </div>
         )}
 
         {/* Style description overlay */}
