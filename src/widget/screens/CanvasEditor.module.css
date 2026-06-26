@@ -31,6 +31,41 @@
   pointer-events: none;
 }
 
+/* ← Home button — top-left of canvas */
+.homeBtn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 20;
+  background: rgba(10, 10, 18, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, color 0.15s;
+  pointer-events: all;
+  font-family: var(--tenant-font, Inter, sans-serif);
+}
+.homeBtn:hover {
+  background: rgba(30, 30, 46, 0.9);
+  color: #fff;
+}
+
+/* Bounding box overlay — rendered inside pinOverlay at item bounds */
+.boundingBox {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
 /* Small corner badge when using demo/mock positions */
 .demoBadge {
   position: absolute;
