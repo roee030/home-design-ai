@@ -29,6 +29,10 @@ export function NavBar({ active }: Props) {
       <a href="#/design" className={styles.cta}>
         Start Designing
       </a>
+
+      <span className={styles.version} title="Build version">
+        {__GIT_HASH__}
+      </span>
     </header>
   )
 }

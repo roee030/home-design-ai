@@ -78,6 +78,18 @@
   opacity: 0.85;
 }
 
+.version {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  color: rgba(26, 26, 46, 0.25);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  user-select: none;
+}
+
 @media (max-width: 600px) {
   .nav {
     padding: 0 16px;
