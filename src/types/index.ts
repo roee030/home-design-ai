@@ -41,6 +41,7 @@ export interface Product {
   basePrice: number
   imageUrl: string
   thumbnailUrl: string
+  overlayUrl?: string    // transparent PNG for canvas overlay (relative to Vite base)
   variants: ProductVariant[]
   styles: DesignStyle[]
   inStock: boolean
