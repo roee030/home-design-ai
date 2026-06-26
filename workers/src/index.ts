@@ -89,9 +89,7 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
     return json({ error: 'Missing required fields: imageBase64, style, catalog' }, 400)
   }
 
-  // Detect invalid key format early — valid Gemini keys start with AIzaSy
-  if (!env.GEMINI_API_KEY || !env.GEMINI_API_KEY.startsWith('AIzaSy')) {
-    console.warn('[Gemini] key missing or invalid format (expected AIzaSy...)')
+  if (!env.GEMINI_API_KEY) {
     return json({ error: 'GEMINI_KEY_INVALID' }, 502)
   }
 
