@@ -1,20 +1,26 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(10, 10, 20, 0.6);
   z-index: 9998;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
+/* ─── Compact screens (upload / style / budget) ─── */
 .panel {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 480px;
-  height: 680px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, 96vw);
+  height: min(660px, 92vh);
   background: var(--tenant-surface, #FAFAF8);
   border-radius: 24px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.08),
+    0 32px 80px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.2);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -22,12 +28,10 @@
   font-family: var(--tenant-font, Inter, sans-serif);
 }
 
+/* ─── Canvas / Processing full-screen ─── */
 .fullscreen {
-  width: min(92vw, 820px);
-  height: min(90vh, 700px);
-  bottom: 50%;
-  right: 50%;
-  transform: translate(50%, 50%);
+  width: min(920px, 96vw);
+  height: min(720px, 94vh);
 }
 
 .header {
@@ -39,11 +43,11 @@
 }
 
 .headerTitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: #888;
+  color: #aaa;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .backBtn,
@@ -52,11 +56,12 @@
   border: none;
   cursor: pointer;
   font-size: 18px;
-  color: #888;
-  padding: 4px 8px;
-  border-radius: 8px;
+  color: #999;
+  padding: 6px 10px;
+  border-radius: 10px;
   transition: color 0.15s, background 0.15s;
   font-family: var(--tenant-font, Inter, sans-serif);
+  line-height: 1;
 }
 
 .backBtn:hover,
@@ -82,21 +87,16 @@
 }
 
 @media (max-width: 520px) {
-  .panel {
-    bottom: 0;
-    right: 0;
+  .panel,
+  .fullscreen {
+    top: auto;
     left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
     width: 100%;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-    height: 90vh;
-  }
-  .fullscreen {
-    width: 100%;
-    height: 100vh;
-    bottom: 0;
-    right: 0;
-    transform: none;
-    border-radius: 0;
+    max-height: 95vh;
   }
 }
