@@ -1,0 +1,40 @@
+.layer {
+  position: absolute;
+  cursor: grab;
+  user-select: none;
+}
+
+.layer:active {
+  cursor: grabbing;
+}
+
+.hotspot {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.hotspotActive {
+  border-color: var(--tenant-accent, #C9A84C);
+  background: rgba(201, 168, 76, 0.08);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.2);
+}
+
+.hotspot::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tenant-accent, #C9A84C);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.hotspotActive::after {
+  opacity: 1;
+}

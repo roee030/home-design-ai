@@ -1,0 +1,82 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 32px 24px;
+  height: 100%;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tenant-primary, #1A1A2E);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.dropzone {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4/3;
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.02);
+  transition: background 0.2s;
+}
+
+.dropzone:hover {
+  background: rgba(201, 168, 76, 0.04);
+}
+
+.uploadIcon { font-size: 40px; }
+
+.dropText { font-size: 14px; font-weight: 600; color: #333; margin: 0; }
+
+.dropHint { font-size: 12px; color: #999; margin: 0; }
+
+.hiddenInput { display: none; }
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e5e5;
+}
+
+.demoBtn {
+  background: none;
+  border: 1.5px solid var(--tenant-primary, #1A1A2E);
+  color: var(--tenant-primary, #1A1A2E);
+  border-radius: var(--tenant-radius-button, 12px);
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--tenant-font, Inter, sans-serif);
+}

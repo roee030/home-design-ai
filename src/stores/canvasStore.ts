@@ -1,0 +1,40 @@
+import { create } from 'zustand'
+import type { CanvasItem } from '@/types'
+import { INITIAL_CANVAS_ITEMS } from '@/constants/mockCanvas'
+
+interface CanvasState {
+  items: CanvasItem[]
+  activeItemId: string | null
+  hoveredItemId: string | null
+  setItems: (items: CanvasItem[]) => void
+  updateItem: (id: string, patch: Partial<CanvasItem>) => void
+  swapVariant: (itemId: string, variantId: string) => void
+  setActive: (id: string | null) => void
+  setHovered: (id: string | null) => void
+  reset: () => void
+}
+
+export const useCanvasStore = create<CanvasState>((set) => ({
+  items: INITIAL_CANVAS_ITEMS,
+  activeItemId: null,
+  hoveredItemId: null,
+
+  setItems: (items) => set({ items }),
+
+  updateItem: (id, patch) =>
+    set((state) => ({
+      items: state.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    })),
+
+  swapVariant: (itemId, variantId) =>
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === itemId ? { ...item, variantId } : item
+      ),
+    })),
+
+  setActive: (id) => set({ activeItemId: id }),
+  setHovered: (id) => set({ hoveredItemId: id }),
+
+  reset: () => set({ items: INITIAL_CANVAS_ITEMS, activeItemId: null, hoveredItemId: null }),
+}))

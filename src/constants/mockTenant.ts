@@ -1,0 +1,103 @@
+import type { TenantConfig, Product } from '@/types'
+
+const CATALOG: Product[] = [
+  {
+    id: 'sofa-oslo',
+    name: 'Oslo Velvet Sofa',
+    category: 'Seating',
+    basePrice: 2799,
+    imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=200&q=80',
+    styles: ['scandinavian', 'contemporary', 'japandi'],
+    inStock: true,
+    variants: [
+      { id: 'sofa-oslo-cream', name: 'Cream', color: '#F5F0E8', imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80', priceDelta: 0 },
+      { id: 'sofa-oslo-sage', name: 'Sage Green', color: '#8FAE8B', imageUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=600&q=80', priceDelta: 0 },
+      { id: 'sofa-oslo-navy', name: 'Midnight Navy', color: '#1B2A4A', imageUrl: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=600&q=80', priceDelta: 150 },
+    ],
+  },
+  {
+    id: 'table-cedar',
+    name: 'Cedar Coffee Table',
+    category: 'Tables',
+    basePrice: 890,
+    imageUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=200&q=80',
+    styles: ['japandi', 'scandinavian', 'mid-century'],
+    inStock: true,
+    variants: [
+      { id: 'table-cedar-oak', name: 'Natural Oak', color: '#C8A876', imageUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&q=80', priceDelta: 0 },
+      { id: 'table-cedar-walnut', name: 'Dark Walnut', color: '#5C3D2E', imageUrl: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?w=600&q=80', priceDelta: 80 },
+    ],
+  },
+  {
+    id: 'lamp-arc',
+    name: 'Arc Floor Lamp',
+    category: 'Lighting',
+    basePrice: 450,
+    imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=200&q=80',
+    styles: ['mid-century', 'contemporary', 'industrial'],
+    inStock: true,
+    variants: [
+      { id: 'lamp-arc-brass', name: 'Brushed Brass', color: '#C9A84C', imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80', priceDelta: 0 },
+      { id: 'lamp-arc-black', name: 'Matte Black', color: '#1A1A1A', imageUrl: 'https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?w=600&q=80', priceDelta: 0 },
+    ],
+  },
+  {
+    id: 'chair-lounge',
+    name: 'Lounge Accent Chair',
+    category: 'Seating',
+    basePrice: 1200,
+    imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=200&q=80',
+    styles: ['mid-century', 'contemporary', 'bohemian'],
+    inStock: true,
+    variants: [
+      { id: 'chair-lounge-cognac', name: 'Cognac Leather', color: '#8B4513', imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80', priceDelta: 200 },
+      { id: 'chair-lounge-ivory', name: 'Ivory Boucle', color: '#F5F0E8', imageUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&q=80', priceDelta: 0 },
+    ],
+  },
+  {
+    id: 'rug-wool',
+    name: 'Textured Wool Rug 200×300',
+    category: 'Rugs',
+    basePrice: 680,
+    imageUrl: 'https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1600166898405-da9535204843?w=200&q=80',
+    styles: ['japandi', 'scandinavian', 'bohemian', 'coastal'],
+    inStock: true,
+    variants: [
+      { id: 'rug-wool-sand', name: 'Sand', color: '#C8B49A', imageUrl: 'https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80', priceDelta: 0 },
+      { id: 'rug-wool-terracotta', name: 'Terracotta', color: '#C17A4A', imageUrl: 'https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80', priceDelta: 0 },
+    ],
+  },
+  {
+    id: 'sideboard-lund',
+    name: 'Lund Sideboard',
+    category: 'Storage',
+    basePrice: 1950,
+    imageUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=200&q=80',
+    styles: ['scandinavian', 'japandi', 'contemporary'],
+    inStock: true,
+    variants: [
+      { id: 'sideboard-lund-white', name: 'White', color: '#F5F5F5', imageUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=600&q=80', priceDelta: 0 },
+      { id: 'sideboard-lund-oak', name: 'Light Oak', color: '#C8A876', imageUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=600&q=80', priceDelta: 100 },
+    ],
+  },
+]
+
+export const MOCK_TENANT: TenantConfig = {
+  id: 'furnistyle-demo',
+  name: 'FurniStyle',
+  logoUrl: '',
+  primaryColor: '#1A1A2E',
+  accentColor: '#C9A84C',
+  textColor: '#1A1A1A',
+  surfaceColor: '#FAFAF8',
+  buttonRadius: '12px',
+  fontFamily: 'Inter, sans-serif',
+  checkoutEndpoint: 'https://example.com/checkout',
+  catalog: CATALOG,
+}

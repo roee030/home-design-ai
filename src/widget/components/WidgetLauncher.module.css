@@ -1,0 +1,25 @@
+.launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  background: var(--tenant-primary, #1A1A2E);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--tenant-radius-button, 12px);
+  font-family: var(--tenant-font, Inter, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.icon {
+  font-size: 18px;
+  color: var(--tenant-accent, #C9A84C);
+}
+
+.label {
+  white-space: nowrap;
+}

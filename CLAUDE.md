@@ -1,7 +1,106 @@
 # home-design-ai
 
 > AI-powered home design platform. [Product overview to be defined.]
+## AI Assistant Operational Commands
 
+## React Web Operational Commands
+
+### Development Commands
+- **Run App (Development):** `npm run dev` or `vite`
+- **Type Check (TypeScript):** `npx tsc --noEmit`
+- **Lint Code:** `npm run lint` or `npx eslint .`
+- **Build App:** `npm run build`
+- **Install Dependencies:** `npm install <package_name>`
+- **Run Tests (Watch Mode):** `npm run test` or `vitest`
+- **Run Test Coverage:** `npm run test:coverage`
+
+### AI Interaction & Token-Saving Protocol
+- **Terse Mode:** Respond with maximum 1-2 sentences of conversational text. Go straight to code blocks.
+- **Verification First:** After modifying types, routing, or state, automatically run `npx tsc --noEmit` via terminal to verify no breakage before declaring completion.
+- **No Placeholders:** Never replace functional code with `// ... rest of code` unless explicitly asked.
+
+## React Web Architecture Guidelines
+
+### Clean Code & Composition Rules (Strict)
+- **5-Line Function Rule:** No function or hook method should exceed **5 lines of code** (excluding brackets and TypeScript types). If it exceeds 5 lines, abstract logic into smaller utility functions or custom hooks.
+- **Micro-Components:** Components must do exactly **one thing** (Single Responsibility Principle) and be extremely short. If a component renders multiple complex UI blocks, split them into sub-components.
+- **No Inline Condition Spawning:** Avoid nesting complex ternaries inside TSX. Extract condition renders into small helper components or clean functions.
+
+### UI, Animations & Styling Rules (Web)
+- **Animations:** All transitions, button hovers/clicks, card interactions, and page entrances **must be animated**. Use `framer-motion` for complex/layout animations or clean Tailwind transition classes for simple states. Avoid static UI jumps.
+- **Styling Tech:** [TailwindCSS ]
+- **Theme Compliance:** Never hardcode hex color strings (e.g., `#FF5733`). Use the global Tailwind theme or CSS variables.
+- **Responsiveness:** Always design mobile-first using Tailwind's responsive breakpoints (`sm:`, `md:`, `lg:`), ensuring the web layout looks native on mobile screens.
+###  Multi-Tenant Design System & Isolation
+- **Strict Isolation:** The entire web app must render inside a Shadow DOM or isolated Iframe to prevent host website CSS bleeding/pollution.
+- **Token-Driven UI:** Never use hardcoded Tailwind utility colors or spacing (e.g., do NOT use `bg-blue-600` or `rounded-lg`). 
+- **Dynamic CSS Variables:** All UI components must consume dynamic design tokens injected at the root layer based on the tenant config:
+  - Backgrounds/Text: `var(--tenant-primary)`, `var(--tenant-secondary)`, `var(--tenant-bg)`
+  - Component Shapes: `var(--tenant-radius-button)`, `var(--tenant-radius-card)`
+  - Typography: `var(--tenant-font-family)`
+- **Fallback Theme:** Implement a bulletproof default fallback theme (e.g., neutral modern dark/light) if the tenant fails to load its design tokens configuration from the API.
+### Core Conventions
+- **Components:** Functional components with Arrow Functions only (`const Component = () => {}`).
+- **File Naming:** PascalCase for UI Components (`ServiceCard.tsx`), kebab-case for assets/utils.
+- **Routing:** [ Next.js (App Router)]
+- **Types:** Use strict TypeScript. Prefer `interface` for component props and object structures, `type` for unions/aliases.
+
+### State & Data Fetching
+- **Server State:** Use React Query / TanStack Query for all external API calls (WhatsApp engine, Google Places).
+- **Local State:** Prefer React hooks (`useState`) for micro-interactions. Use Zustand for global core states if needed.
+- **Async Operations:** All network requests must have explicit loading skeletons/spinners, error catch wrappers, and empty states.
+
+### Testing Strategy & RTL Rules (Strict Compliance)
+- **100% Component Coverage:** Every new or modified UI component must have a corresponding `.test.tsx` file.
+- **User-Centric Testing:** Never test implementation details (e.g., don't spy on internal component state or hooks directly). Always use `@testing-library/user-event` to simulate real user interactions (clicks, typing, media uploads) instead of raw `fireEvent`.
+- **Query Priority:** Strictly follow RTL query hierarchy:
+  1. `getByRole` (Highly preferred for accessibility and robustness)
+  2. `getByLabelText` / `getByPlaceholderText`
+  3. `getByText`
+  4. Never use `data-testid` unless testing dynamic elements or complex animations that cannot be queried by role.
+- **Async & Animation Testing:** Since the app heavily uses animations and async data:
+  1. Use `findByRole` or `waitFor` for elements that appear post-animation or post-API fetch.
+  2. Mock `framer-motion` layout animations if they cause artificial timeouts in the test runner.
+- **State & API Boundary Mocking:** Always mock external API calls (WhatsApp engine simulation, Google Places) using MSW (Mock Service Worker) or strict Jest/Vitest spies. Test three distinct phases for every data-driven component: **Loading State**, **Success/Data State**, and **Error State**.
+- **Edge Cases:** Always write explicit test cases for: empty states, disabled button triggers, exceptionally long strings/text truncation, and missing image fallbacks.
+## B2B2C Widget Architecture Rules
+
+### Embedded Execution
+- The application runs as an embedded widget (via Iframe or injected Shadow DOM) inside host retail websites.
+- Global window communication must use safe `postMessage` protocols to talk to the host site (e.g., notifying the host to add items to the ecommerce cart).
+
+### Interactive Canvas & Layers
+- **Background Layer:** The AI-generated empty room canvas.
+- **Interactive Layer:** HTML5 Canvas or absolute positioned elements mapped to dynamic product items. 
+- **State Management:** Moving an item updates its X/Y coordinates in local state, triggering a re-render of its bounding box without re-generating the entire image.
+- **Product Variants:** Switching color variations swaps the image source of the specific layered element instantly, querying the pre-cached product feed.
+## Technical Architecture & State Machine (ShopTheRoom AI)
+
+### 1. Multi-Tenant Initialization
+- The Widget detects the host store using a unique "data-tenant-id" from the injected script.
+- On mount, fetch the tenant's specific configuration: Design tokens (primary/secondary colors, fonts) and the cached product catalog mapping.
+
+### 2. Canvas & Layering Engine
+- The workspace consists of a stacked layout:
+  - Base Layer (Static): The AI-inpainted "empty room" background image.
+  - Interactive Layer (Dynamic): An array of tracked furniture items rendered as absolute-positioned components.
+- Each interactive item state must follow this strict TypeScript schema:
+  - id: string (Unique instance ID)
+  - productId: string (Maps to the store's product feed)
+  - x: number (Percentage-based X coordinate for responsiveness)
+  - y: number (Percentage-based Y coordinate)
+  - scale: number (Resize factor)
+  - zIndex: number (Layer order, e.g., carpet below sofa)
+  - currentVariantId: string (Active color/material SKU)
+- Moving or resizing an item updates the local React/Zustand state directly. Do NOT trigger a backend AI re-render for position/variant updates.
+
+### 3. Variant & Asset Management
+- Selecting a different color/variant must strictly swap the asset "src" url of the CanvasItem locally.
+- All asset swaps must be wrapped in a smooth framer-motion layout transition to prevent visual stuttering.
+
+### 4. Host Integration & Checkout Bridge
+- The widget must operate inside an isolated Environment (Shadow DOM or Secure Iframe).
+- Clicking "Add to Cart" or "Buy the Room" must dispatch a secure window event ("window.parent.postMessage") containing the array of selected Shopify/WooCommerce variant IDs to the host website's native shopping cart.
 ## Product Overview
 
 Users report issues via photo/text. AI analyzes & categorizes. System finds relevant local professionals via Google Places API. Sends them WhatsApp with photos + description. Providers reply via WhatsApp (price + ETA). Customer sees responses in app, picks one. Details revealed only after selection.
@@ -147,94 +246,11 @@ The system acts as an AI secretary between customer and providers:
 
 ### Project Structure
 ```
-ai-fixly/
-  app/                          # Expo Router screens
-    (tabs)/                     # Tab navigator
-      index.tsx                 # Hub (Home)
-      history.tsx               # History
-      profile.tsx               # Profile/Settings
-    (auth)/                     # Auth flow
-    capture/                    # Live Capture flow
-    request/                    # AI confirm, Bidding, Job Details
-    chat/                       # Chat screen
-    _layout.tsx                 # Root layout
-  src/
-    components/                 # Reusable UI (small, pure)
-      ui/                       # Primitives (Button, Card, Input, Badge)
-      request/                  # Request-specific (BidCard, StatusTimeline)
-      capture/                  # Capture-specific (Waveform, CaptureButton)
-      layout/                   # Layout wrappers (ScreenContainer, Header)
-    hooks/                      # Custom hooks
-    services/                   # API/Firebase abstraction layer
-      ai/                       # AI analysis (interface + implementations)
-      auth/                     # Auth service
-      requests/                 # Service requests CRUD
-      bids/                     # Bidding service
-      chat/                     # Chat service
-      media/                    # Upload & processing
-      notifications/            # Push + WhatsApp
-    stores/                     # Zustand stores (small, focused)
-    types/                      # TypeScript interfaces & enums
-    constants/                  # ALL magic values live here
-      theme.ts                  # Colors, fonts, spacing, radii
-      layout.ts                 # Dimensions, breakpoints
-      animation.ts              # Durations, easings
-      limits.ts                 # Max file size, bid timeout, radius km
-      categories.ts             # Service categories config (dynamic)
-      status.ts                 # Request/bid status enums & labels
-    utils/                      # Pure helper functions
-    validators/                 # Zod schemas (shared client/server)
-    config/                     # Firebase config, env vars
-  functions/                    # Firebase Cloud Functions
-    src/
-      ai/                       # AI pipeline
-      bids/                     # Bid management
-      notifications/            # WhatsApp/Push dispatch
-      middleware/               # Auth, rate limiting, validation
-    package.json
-  # No provider web app — everything via WhatsApp
-  firebase/
-    firestore.rules             # Security rules (strict)
-    storage.rules               # Media access rules
-  __tests__/                    # E2E tests (Maestro)
-```
+
 
 ### Constants Pattern (MANDATORY)
 ```typescript
-// constants/limits.ts - ALL numbers here
-export const LIMITS = {
-  MAX_VIDEO_DURATION_SEC: 60,
-  MAX_IMAGE_SIZE_MB: 10,
-  MAX_IMAGES_PER_REQUEST: 5,
-  BID_WINDOW_MINUTES: 30,
-  SEARCH_RADIUS_KM: 15,
-  MAX_ACTIVE_REQUESTS: 3,
-  MIN_BID_PRICE: 50,
-} as const;
 
-// constants/theme.ts - ALL visual values here
-export const COLORS = {
-  primary: '#6366F1',
-  background: '#0F0F1A',
-  surface: 'rgba(255, 255, 255, 0.06)',
-  text: '#FFFFFF',
-  textSecondary: 'rgba(255, 255, 255, 0.6)',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-} as const;
-
-export const SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
-export const RADII = { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 } as const;
-export const FONT_SIZES = { xs: 12, sm: 14, md: 16, lg: 20, xl: 28, xxl: 36 } as const;
-
-// constants/animation.ts - ALL timing here
-export const ANIMATION = {
-  FAST: 150,
-  NORMAL: 300,
-  SLOW: 500,
-  EASING: 'easeInOut',
-} as const;
 ```
 
 ### Naming Conventions

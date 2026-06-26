@@ -1,0 +1,90 @@
+.card {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-width: 200px;
+  max-width: 240px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  z-index: 100;
+  pointer-events: all;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.category {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  font-weight: 500;
+}
+
+.price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tenant-primary, #1A1A2E);
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.variants {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: transform 0.15s;
+}
+
+.swatchActive {
+  border-color: var(--tenant-primary, #1A1A2E);
+  transform: scale(1.15);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.variantLabel {
+  font-size: 11px;
+  color: #666;
+}
+
+.buyBtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tenant-accent, #C9A84C);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
