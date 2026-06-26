@@ -5,7 +5,6 @@ import type {
   GenerateRoomResult,
 } from './types'
 import { MOCK_TENANT } from '@/constants/mockTenant'
-import { ROOM_IMAGE_URL } from '@/constants/mockCanvas'
 import { logger } from '@/utils/logger'
 
 // Set VITE_API_URL to your deployed Cloudflare Worker URL.
@@ -47,18 +46,12 @@ export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoo
 
 export async function generateRoom(params: GenerateRoomParams): Promise<GenerateRoomResult> {
   if (!API_BASE && !import.meta.env.DEV) {
-    logger.info('No VITE_API_URL — using stock room image')
-    return { imageUrl: ROOM_IMAGE_URL }
+    throw new Error('No VITE_API_URL configured')
   }
-
-  try {
-    const result = await post<GenerateRoomResult>('/api/generate-room', params)
-    logger.info('Room generation complete', { url: result.imageUrl.slice(0, 60) })
-    return result
-  } catch (err) {
-    logger.warn('generateRoom failed — using stock room image', { err: String(err) })
-    return { imageUrl: ROOM_IMAGE_URL }
-  }
+  // Throws on failure — caller decides the fallback (original uploaded image, not stock)
+  const result = await post<GenerateRoomResult>('/api/generate-room', params)
+  logger.info('Room generation complete', { url: result.imageUrl.slice(0, 60) })
+  return result
 }
 
 function getMockAnalysis(): AnalyzeRoomResult {

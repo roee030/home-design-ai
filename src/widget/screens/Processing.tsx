@@ -70,17 +70,25 @@ export function Processing({ tenant }: Props) {
         const imageBase64 = await imageUrlToBase64(uploadedImageUrl)
         logger.info('Image compressed to base64', { bytes: imageBase64.length })
 
-        // ── 2. Generate restyled room image first ───────────────────────
-        // Sequential (not parallel) so Gemini can analyze the GENERATED image,
-        // ensuring pin positions match what the user actually sees.
+        // ── 2. Generate restyled room image ─────────────────────────────
+        // On failure: fall back to the original uploaded image (not a random stock photo)
         setPhase('generating')
-        const generatedResult = await generateRoom({ imageBase64, style: selectedStyle })
+        let finalImageUrl: string = uploadedImageUrl!
+        let analysisBase64: string = imageBase64  // reuse already-loaded base64
 
-        // ── 3. Analyze the GENERATED image for product placement ────────
-        // This guarantees pin coordinates match the AI-generated composition.
+        try {
+          const generatedResult = await generateRoom({ imageBase64, style: selectedStyle })
+          finalImageUrl = generatedResult.imageUrl
+          // Need to re-encode generated image so Gemini analyses what the user sees
+          analysisBase64 = await imageUrlToBase64(finalImageUrl)
+        } catch (genErr) {
+          logger.warn('Room generation failed — analysing original uploaded image', { err: String(genErr) })
+          // analysisBase64 already = imageBase64 (original), finalImageUrl = uploadedImageUrl
+        }
+
+        // ── 3. Analyze whichever image we ended up with ─────────────────
         setPhase('analyzing')
-        const generatedBase64 = await imageUrlToBase64(generatedResult.imageUrl)
-        const analysisResult = await analyzeRoom({ imageBase64: generatedBase64, style: selectedStyle, budget })
+        const analysisResult = await analyzeRoom({ imageBase64: analysisBase64, style: selectedStyle, budget })
 
         // ── 3. Apply product placements ─────────────────────────────────
         setPhase('matching')
@@ -102,7 +110,7 @@ export function Processing({ tenant }: Props) {
 
         resetCanvas()
         setCanvasItems(canvasItems)
-        setGeneratedImage(generatedResult.imageUrl)
+        setGeneratedImage(finalImageUrl)
         setStyleDescription(analysisResult.styleDescription)
         setHasAIAnalysis(analysisResult.isAIGenerated)
 
