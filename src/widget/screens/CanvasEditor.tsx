@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, Fragment } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { useWidgetStore } from '@/stores/widgetStore'
@@ -12,10 +12,11 @@ import styles from './CanvasEditor.module.css'
 interface Props { tenant: TenantConfig }
 
 export function CanvasEditor({ tenant }: Props) {
-  const items        = useCanvasStore((s) => s.items)
-  const activeItemId = useCanvasStore((s) => s.activeItemId)
-  const setActive    = useCanvasStore((s) => s.setActive)
-  const swapProduct  = useCanvasStore((s) => s.swapProduct)
+  const items         = useCanvasStore((s) => s.items)
+  const activeItemId  = useCanvasStore((s) => s.activeItemId)
+  const hoveredItemId = useCanvasStore((s) => s.hoveredItemId)
+  const setActive     = useCanvasStore((s) => s.setActive)
+  const swapProduct   = useCanvasStore((s) => s.swapProduct)
 
   const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
   const styleDescription  = useWidgetStore((s) => s.styleDescription)
@@ -99,6 +100,14 @@ export function CanvasEditor({ tenant }: Props) {
           onLoad={recalcBounds}
         />
 
+        {/* Home button — top-left overlay */}
+        <button
+          className={styles.homeBtn}
+          onClick={() => { window.location.hash = '/' }}
+        >
+          ← Home
+        </button>
+
         {/* Pin overlay — positioned exactly over the displayed image area */}
         {imgBounds.width > 0 && (
           <div
@@ -111,9 +120,34 @@ export function CanvasEditor({ tenant }: Props) {
               height: imgBounds.height,
             }}
           >
-            {items.map((item) => (
-              <ProductLayer key={item.id} item={item} />
-            ))}
+            {items.map((item) => {
+              const isHighlighted = item.id === activeItemId || item.id === hoveredItemId
+              const bProduct = isHighlighted ? MOCK_TENANT.catalog.find((p) => p.id === item.productId) : null
+              const bVariant = bProduct?.variants.find((v) => v.id === item.variantId) ?? bProduct?.variants[0]
+              return (
+                <Fragment key={item.id}>
+                  <AnimatePresence>
+                    {isHighlighted && (
+                      <motion.div
+                        className={styles.boundingBox}
+                        style={{
+                          left:   `${item.x}%`,
+                          top:    `${item.y}%`,
+                          width:  `${item.width}%`,
+                          height: `${item.height}%`,
+                          borderColor: bVariant?.color ?? 'var(--tenant-accent, #C9A84C)',
+                        }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                      />
+                    )}
+                  </AnimatePresence>
+                  <ProductLayer item={item} />
+                </Fragment>
+              )
+            })}
           </div>
         )}
 

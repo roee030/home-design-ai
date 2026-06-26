@@ -13,9 +13,10 @@ interface Props {
 
 export function ProductLayer({ item }: Props) {
   const [hovered, setHovered] = useState(false)
-  const updateItem = useCanvasStore((s) => s.updateItem)
-  const setActive = useCanvasStore((s) => s.setActive)
-  const activeItemId = useCanvasStore((s) => s.activeItemId)
+  const updateItem    = useCanvasStore((s) => s.updateItem)
+  const setActive     = useCanvasStore((s) => s.setActive)
+  const setStoreHover = useCanvasStore((s) => s.setHovered)
+  const activeItemId  = useCanvasStore((s) => s.activeItemId)
 
   const dragging = useRef(false)
   const dragStart = useRef({ mx: 0, my: 0, ix: 0, iy: 0 })
@@ -71,8 +72,8 @@ export function ProductLayer({ item }: Props) {
     <div
       className={styles.pinRoot}
       style={{ left: `${pinX}%`, top: `${pinY}%`, zIndex: item.zIndex + (isActive ? 100 : 0) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); setStoreHover(item.id) }}
+      onMouseLeave={() => { setHovered(false); setStoreHover(null) }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}
     >

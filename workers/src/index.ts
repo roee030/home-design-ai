@@ -45,6 +45,11 @@ interface CatalogProduct {
   basePrice: number
   styles: string[]
   variants: Array<{ id: string; name: string; color: string; priceDelta: number }>
+  brand?: string
+  material?: string[]
+  colorFamily?: string
+  roomTypes?: string[]
+  tags?: string[]
 }
 
 interface AnalyzeRoomBody {
@@ -84,6 +89,12 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
     return json({ error: 'Missing required fields: imageBase64, style, catalog' }, 400)
   }
 
+  // Detect invalid key format early — valid Gemini keys start with AIzaSy
+  if (!env.GEMINI_API_KEY || !env.GEMINI_API_KEY.startsWith('AIzaSy')) {
+    console.warn('[Gemini] key missing or invalid format (expected AIzaSy...)')
+    return json({ error: 'GEMINI_KEY_INVALID' }, 502)
+  }
+
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
 
   // Send catalog as compact summary (no image URLs needed)
@@ -92,8 +103,12 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
     name: p.name,
     category: p.category,
     price: p.basePrice,
+    brand: p.brand,
     styles: p.styles,
-    variants: p.variants.map((v) => ({ id: v.id, name: v.name, priceDelta: v.priceDelta })),
+    colorFamily: p.colorFamily,
+    material: p.material,
+    roomTypes: p.roomTypes,
+    variants: p.variants.map((v) => ({ id: v.id, name: v.name, color: v.name, priceDelta: v.priceDelta })),
   }))
 
   const prompt = `You are an expert AI interior designer working for a furniture retailer.

@@ -15,16 +15,42 @@ export interface ProductVariant {
   priceDelta: number
 }
 
+export type ProductCategory =
+  | 'Seating'
+  | 'Tables'
+  | 'Lighting'
+  | 'Storage'
+  | 'Bedroom'
+  | 'Rugs'
+  | 'Decor'
+
+export type RoomType =
+  | 'living-room'
+  | 'bedroom'
+  | 'dining-room'
+  | 'home-office'
+  | 'kitchen'
+  | 'kids-room'
+
+export type ColorFamily = 'neutral' | 'warm' | 'cool' | 'dark' | 'colorful'
+
 export interface Product {
   id: string
   name: string
-  category: string
+  category: ProductCategory | string
   basePrice: number
   imageUrl: string
   thumbnailUrl: string
   variants: ProductVariant[]
   styles: DesignStyle[]
   inStock: boolean
+  // Rich metadata for smart filtering & AI matching
+  brand?: string
+  material?: string[]
+  colorFamily?: ColorFamily
+  roomTypes?: RoomType[]
+  tags?: Array<'bestseller' | 'new' | 'eco' | 'flat-pack' | 'solid-wood' | 'limited'>
+  dimensions?: { w: number; d: number; h: number }  // cm
 }
 
 export interface CanvasItem {
