@@ -1,40 +1,35 @@
-.layer {
+.pinRoot {
   position: absolute;
-  cursor: grab;
-  user-select: none;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.layer:active {
-  cursor: grabbing;
-}
-
-.hotspot {
+.pulseRing {
   position: absolute;
-  inset: 0;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.hotspotActive {
-  border-color: var(--tenant-accent, #C9A84C);
-  background: rgba(201, 168, 76, 0.08);
-  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.2);
-}
-
-.hotspot::after {
-  content: '';
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--tenant-accent, #C9A84C);
-  opacity: 0;
-  transition: opacity 0.2s;
+  border: 2px solid;
+  pointer-events: none;
 }
 
-.hotspotActive::after {
-  opacity: 1;
+.dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  transition: background 0.3s ease;
+  cursor: grab;
+}
+
+.dot:active {
+  cursor: grabbing;
 }
