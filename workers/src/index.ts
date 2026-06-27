@@ -337,6 +337,7 @@ Instructions:
 Return only the edited room photo.`
 
   const IMAGE_EDIT_MODELS = [
+    'gemini-2.0-flash-exp-image-generation',
     'gemini-2.0-flash-exp',
     'gemini-2.0-flash-preview-image-generation',
     'gemini-2.5-flash-preview-image-generation',
@@ -350,7 +351,7 @@ Return only the edited room photo.`
       ],
     }],
     generationConfig: {
-      responseModalities: ['IMAGE'],
+      responseModalities: ['TEXT', 'IMAGE'],
       temperature: 0.3,
     },
   })
