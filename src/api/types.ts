@@ -11,7 +11,7 @@ export interface AIProductPlacement {
   width: number
   height: number
   zIndex: number
-  viewAngle?: number  // horizontal rotation in degrees (0=frontal, ±45=side view)
+  viewAngle?: number
 }
 
 export interface AnalyzeRoomResult {
@@ -24,9 +24,26 @@ export interface AnalyzeRoomResult {
 export interface GenerateRoomParams {
   imageBase64: string
   style: string
+  products?: string[]  // product names to include in the redesign
 }
 
 export interface GenerateRoomResult {
   imageUrl: string
   fallback?: boolean  // true = Gemini image gen failed, imageUrl is the original photo
+}
+
+export interface LocateProductInput {
+  productId: string
+  variantId: string
+  name: string
+  description: string
+}
+
+export interface LocateProductsParams {
+  imageBase64: string
+  products: LocateProductInput[]
+}
+
+export interface LocateProductsResult {
+  placements: AIProductPlacement[]
 }

@@ -3,12 +3,12 @@ import type {
   AnalyzeRoomResult,
   GenerateRoomParams,
   GenerateRoomResult,
+  LocateProductsParams,
+  LocateProductsResult,
 } from './types'
 import { MOCK_TENANT } from '@/constants/mockTenant'
 import { logger } from '@/utils/logger'
 
-// Set VITE_API_URL to your deployed Cloudflare Worker URL.
-// In local dev, run `npm run dev` inside /workers — it starts on :8787 and Vite proxies /api to it.
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -25,6 +25,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Step 1: analyze original image → select catalog products + estimated positions
 export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoomResult> {
   if (!API_BASE) {
     logger.info('No VITE_API_URL — using mock analysis')
@@ -44,18 +45,31 @@ export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoo
   }
 }
 
+// Step 2: generate new room image with specific products placed in it
 export async function generateRoom(params: GenerateRoomParams): Promise<GenerateRoomResult> {
-  if (!API_BASE && !import.meta.env.DEV) {
-    throw new Error('No VITE_API_URL configured')
+  if (!API_BASE) {
+    return { imageUrl: '', fallback: true }
   }
-  // Throws on failure — caller decides the fallback (original uploaded image, not stock)
-  const result = await post<GenerateRoomResult>('/api/generate-room', params)
-  logger.info('Room generation complete', { url: result.imageUrl.slice(0, 60) })
+  try {
+    const result = await post<GenerateRoomResult>('/api/generate-room', params)
+    logger.info('Room generation complete', { fallback: result.fallback ?? false })
+    return result
+  } catch (err) {
+    logger.warn('generateRoom failed', { err: String(err) })
+    return { imageUrl: '', fallback: true }
+  }
+}
+
+// Step 3: locate each product in the generated image → precise pin positions
+export async function locateProducts(params: LocateProductsParams): Promise<LocateProductsResult> {
+  if (!API_BASE) throw new Error('No API_BASE')
+
+  const result = await post<LocateProductsResult>('/api/locate-products', params)
+  logger.info('Product location complete', { placements: result.placements?.length ?? 0 })
   return result
 }
 
 function getMockAnalysis(): AnalyzeRoomResult {
-  // Demo placements matching a standard bedroom — visible even when Gemini quota is exhausted
   return {
     selectedProducts: [
       { productId: 'bed-frame-oak',       variantId: 'bed-oak-natural',     x: 20, y: 38, width: 50, height: 40, zIndex: 1, viewAngle:   0 },

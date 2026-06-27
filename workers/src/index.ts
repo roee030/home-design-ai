@@ -228,6 +228,89 @@ Return ONLY valid JSON — no markdown fences, no explanation:
   return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
+// ─── locate-products: find where specific products appear in an image ─────────
+
+interface LocateProductsBody {
+  imageBase64: string
+  products: Array<{ productId: string; variantId: string; name: string; description: string }>
+}
+
+async function handleLocateProducts(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as LocateProductsBody
+  const { imageBase64, products } = body
+
+  if (!imageBase64 || !products?.length) {
+    return json({ error: 'Missing imageBase64 or products' }, 400)
+  }
+
+  if (!env.GEMINI_API_KEY) return json({ error: 'GEMINI_KEY_INVALID' }, 502)
+
+  const productList = products
+    .map((p) => `• productId="${p.productId}" variantId="${p.variantId}" — ${p.name} (${p.description})`)
+    .join('\n')
+
+  const prompt = `You are an expert interior designer analyzing a redesigned room photo.
+
+The following furniture products were placed in this room:
+${productList}
+
+For EACH product above, locate it in the photo and return its bounding box.
+
+Rules:
+• x = left edge as % of image WIDTH (0=left, 100=right)
+• y = top edge as % of image HEIGHT (0=top, 100=bottom)
+• width / height = bounding box size as % of image
+• viewAngle: 0=frontal, positive=turned right, negative=turned left (range ±45)
+• zIndex: rugs/floor=1, sofas/chairs/beds=2, lamps/art=3
+• Return the EXACT productId and variantId from the list above — do not change them
+
+Return ONLY valid JSON:
+{
+  "placements": [
+    { "productId": "string", "variantId": "string", "x": number, "y": number, "width": number, "height": number, "zIndex": number, "viewAngle": number }
+  ]
+}`
+
+  const LOCATE_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: { response_mime_type: 'application/json', temperature: 0.1, maxOutputTokens: 1024 },
+  })
+
+  for (const model of LOCATE_MODELS) {
+    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody,
+    })
+
+    if (!res.ok) { console.warn(`[Gemini/${model}] locate failed ${res.status}`); continue }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{ content: { parts: Array<{ text: string }> } }>
+      error?: { message: string }
+    }
+
+    if (data.error) { console.warn(`[Gemini/${model}] locate error:`, data.error.message); continue }
+
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+    try {
+      const result = JSON.parse(rawText)
+      console.log(`[Gemini/${model}] locate-products success`)
+      return json(result)
+    } catch {
+      console.warn(`[Gemini/${model}] locate JSON parse failed`)
+      continue
+    }
+  }
+
+  return json({ error: 'locate-products failed' }, 502)
+}
+
 // ─── generate-room: Gemini image editing (remove old furniture, add new) ──────
 
 async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
@@ -407,6 +490,8 @@ export default {
       res = await handleGenerateRoom(request, env)
     } else if (url.pathname === '/api/generate-template' && request.method === 'POST') {
       res = await handleGenerateTemplate(request, env)
+    } else if (url.pathname === '/api/locate-products' && request.method === 'POST') {
+      res = await handleLocateProducts(request, env)
     } else if (url.pathname === '/api/health') {
       res = json({ status: 'ok', ts: new Date().toISOString() })
     } else {
