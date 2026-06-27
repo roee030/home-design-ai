@@ -1,14 +1,20 @@
 import { create } from 'zustand'
 import type { CanvasItem } from '@/types'
+import type { DesignPlacement } from '@/api/types'
 import { INITIAL_CANVAS_ITEMS } from '@/constants/mockCanvas'
 
 interface CanvasState {
   items: CanvasItem[]
   activeItemId: string | null
   hoveredItemId: string | null
-  roomAIGenerated: boolean  // true = Gemini redesigned the room image (furniture already replaced)
+  roomAIGenerated: boolean
+  isRegenerating: boolean           // true while swap re-design is in progress
+  designPlacements: DesignPlacement[] // full placement data (incl. imageUrls) for re-generation
+
   setItems: (items: CanvasItem[]) => void
   setRoomAIGenerated: (v: boolean) => void
+  setIsRegenerating: (v: boolean) => void
+  setDesignPlacements: (placements: DesignPlacement[]) => void
   updateItem: (id: string, patch: Partial<CanvasItem>) => void
   swapVariant: (itemId: string, variantId: string) => void
   swapProduct: (itemId: string, productId: string, variantId: string) => void
@@ -22,9 +28,13 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   activeItemId: null,
   hoveredItemId: null,
   roomAIGenerated: false,
+  isRegenerating: false,
+  designPlacements: [],
 
   setItems: (items) => set({ items }),
   setRoomAIGenerated: (v) => set({ roomAIGenerated: v }),
+  setIsRegenerating: (v) => set({ isRegenerating: v }),
+  setDesignPlacements: (placements) => set({ designPlacements: placements }),
 
   updateItem: (id, patch) =>
     set((state) => ({
@@ -48,5 +58,12 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   setActive: (id) => set({ activeItemId: id }),
   setHovered: (id) => set({ hoveredItemId: id }),
 
-  reset: () => set({ items: INITIAL_CANVAS_ITEMS, activeItemId: null, hoveredItemId: null, roomAIGenerated: false }),
+  reset: () => set({
+    items: INITIAL_CANVAS_ITEMS,
+    activeItemId: null,
+    hoveredItemId: null,
+    roomAIGenerated: false,
+    isRegenerating: false,
+    designPlacements: [],
+  }),
 }))

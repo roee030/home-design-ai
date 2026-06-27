@@ -55,12 +55,33 @@ interface AnalyzeRoomBody {
   imageBase64: string
   style: string
   catalog: CatalogProduct[]
+  excludeProductIds?: string[]
 }
 
 interface GenerateRoomBody {
   imageBase64: string
   style: string
   products?: string[]
+}
+
+interface DesignPlacementInput {
+  productId: string
+  variantId: string
+  imageUrl: string      // product image URL to fetch and send as visual reference
+  name: string
+  category: string
+  x: number             // left edge % of image width
+  y: number             // top edge % of image height
+  width: number         // % of image width
+  height: number        // % of image height
+  zIndex: number
+  viewAngle?: number
+}
+
+interface DesignRoomBody {
+  roomImageBase64: string
+  style: string
+  placements: DesignPlacementInput[]
 }
 
 // ─── Style descriptions ────────────────────────────────────────────────────
@@ -89,11 +110,29 @@ function geminiUrl(model: string, key: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
 }
 
+async function urlToBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const res = await fetch(url, { cf: { cacheEverything: true, cacheTtl: 3600 } } as RequestInit)
+    if (!res.ok) return null
+    const buf = await res.arrayBuffer()
+    const bytes = new Uint8Array(buf)
+    let b64 = ''
+    // chunk to avoid call stack limits
+    for (let i = 0; i < bytes.length; i += 8192) {
+      b64 += String.fromCharCode(...bytes.subarray(i, i + 8192))
+    }
+    const mimeType = res.headers.get('content-type')?.split(';')[0] ?? 'image/jpeg'
+    return { data: btoa(b64), mimeType }
+  } catch {
+    return null
+  }
+}
+
 // ─── analyze-room: Gemini vision → product placement ──────────────────────
 
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
-  const { imageBase64, style, catalog } = body
+  const { imageBase64, style, catalog, excludeProductIds } = body
 
   if (!imageBase64 || !style || !catalog?.length) {
     return json({ error: 'Missing required fields: imageBase64, style, catalog' }, 400)
@@ -118,6 +157,10 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
     variants: p.variants.map((v) => ({ id: v.id, name: v.name, color: v.name, priceDelta: v.priceDelta })),
   }))
 
+  const excludeLine = excludeProductIds?.length
+    ? `\n• AVOID selecting these product IDs (already shown to user): ${excludeProductIds.join(', ')}`
+    : ''
+
   const prompt = `You are an expert AI interior designer working for a furniture retailer.
 
 Analyse the uploaded room photo and select the best products from the catalog for a ${styleDesc} redesign.
@@ -126,7 +169,7 @@ Catalog (JSON):
 ${JSON.stringify(catalogSummary, null, 2)}
 
 Instructions:
-• Select 4–5 products that best fit the "${style}" aesthetic and suit this room type
+• Select 4–5 products that best fit the "${style}" aesthetic and suit this room type${excludeLine}
 • Identify existing furniture in the photo and place the catalog items at those exact positions
 • x = left edge of bounding box as % of image WIDTH (0 = left, 100 = right)
 • y = top edge of bounding box as % of image HEIGHT (0 = top, 100 = bottom)
@@ -220,6 +263,135 @@ Return ONLY valid JSON — no markdown fences, no explanation:
   return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
+// ─── design-room: multi-image composite — room + product photos → new image ─
+// This is the core new endpoint. We receive:
+//   • roomImageBase64 — the uploaded room photo
+//   • placements[]   — each with: imageUrl (product photo URL), name, category, x/y/width/height
+// We fetch each product image, build a multi-part Gemini prompt, and return a
+// composited room image where each product is placed at its specified position.
+// Positions are KNOWN from the analyze step — no locate step needed.
+
+async function handleDesignRoom(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as DesignRoomBody
+  const { roomImageBase64, style, placements } = body
+
+  if (!roomImageBase64 || !style || !placements?.length) {
+    return json({ error: 'Missing required fields: roomImageBase64, style, placements' }, 400)
+  }
+
+  if (!env.GEMINI_API_KEY) {
+    return json({ error: 'GEMINI_KEY_INVALID' }, 502)
+  }
+
+  const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
+  const roomMime  = detectMimeType(roomImageBase64)
+
+  // Fetch all product images in parallel (timeout ~8s per image)
+  const productImgs = await Promise.all(
+    placements.map((p) => urlToBase64(p.imageUrl))
+  )
+
+  // Build multi-part Gemini request
+  // Structure: [room image] → style instruction → [product1 image] → product1 placement → … → final instruction
+  type GeminiPart = { inline_data: { mime_type: string; data: string } } | { text: string }
+  const parts: GeminiPart[] = [
+    { inline_data: { mime_type: roomMime, data: roomImageBase64 } },
+    { text: `You are an expert interior designer and photo compositor. Redesign this room in ${styleDesc} style by inserting the reference furniture products below at their specified positions.` },
+  ]
+
+  for (let i = 0; i < placements.length; i++) {
+    const p   = placements[i]
+    const img = productImgs[i]
+    if (img) {
+      parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } })
+      parts.push({
+        text: `Reference furniture ${i + 1}: "${p.name}" (${p.category}).
+Place this EXACT item at position: left=${p.x}% from image left, top=${p.y}% from image top, width=${p.width}% of image width, height=${p.height}% of image height.`,
+      })
+    } else {
+      // Image fetch failed — fall back to text description
+      parts.push({
+        text: `Furniture ${i + 1}: "${p.name}" (${p.category}) — place a beautiful ${style} ${p.category.toLowerCase()} at left=${p.x}%, top=${p.y}%, ${p.width}% wide, ${p.height}% tall.`,
+      })
+    }
+  }
+
+  parts.push({
+    text: `Final instructions:
+• REMOVE the existing furniture in each placement zone
+• INSERT each reference product image at its specified position with correct perspective, realistic scale, and room lighting
+• Each product must cast shadows/reflections matching the room's existing light source
+• Keep EXACTLY unchanged: walls, floor, ceiling, windows, doors, architectural features
+• Maintain the original room's camera angle and perspective throughout
+• Output: a single photorealistic interior design photograph, magazine quality
+• Do NOT invent new furniture, do NOT alter the appearance of the reference products`,
+  })
+
+  const IMAGE_EDIT_MODELS = [
+    'gemini-2.0-flash-exp-image-generation',
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-preview-image-generation',
+    'gemini-2.5-flash-preview-image-generation',
+  ]
+
+  const requestBody = JSON.stringify({
+    contents: [{ parts }],
+    generationConfig: {
+      responseModalities: ['TEXT', 'IMAGE'],
+      temperature: 0.2,
+    },
+  })
+
+  let lastErr = ''
+  for (const model of IMAGE_EDIT_MODELS) {
+    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+    })
+
+    if (!res.ok) {
+      lastErr = await res.text()
+      console.warn(`[Gemini Image/${model}] design-room failed ${res.status}:`, lastErr.slice(0, 120))
+      continue
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
+      }>
+      error?: { message: string }
+    }
+
+    if (data.error) {
+      lastErr = data.error.message
+      console.warn(`[Gemini Image/${model}] design-room error:`, lastErr.slice(0, 120))
+      continue
+    }
+
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+    if (!imagePart?.inlineData) {
+      lastErr = 'no image part in response'
+      console.warn(`[Gemini Image/${model}] design-room: no image part`)
+      continue
+    }
+
+    console.log(`[Gemini Image/${model}] design-room success`)
+    return json({
+      imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+      placements,   // echo back the positions (positions were input, not discovered)
+    })
+  }
+
+  // All models failed — return original room with fallback flag
+  console.warn('[design-room] all Gemini image models failed:', lastErr.slice(0, 200))
+  return json({
+    imageUrl: `data:${roomMime};base64,${roomImageBase64}`,
+    placements,
+    fallback: true,
+  })
+}
+
 // ─── locate-products: find where products appear in an image ──────────────
 
 interface LocateProductsBody {
@@ -303,7 +475,7 @@ Return ONLY valid JSON:
   return json({ error: 'locate-products failed' }, 502)
 }
 
-// ─── generate-room: Gemini image editing ──────────────────────────────────
+// ─── generate-room: legacy text-prompt image editing (kept for compat) ────
 
 async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as GenerateRoomBody
@@ -396,7 +568,6 @@ Return only the edited room photo.`
     })
   }
 
-  // All Gemini image models failed — return original image so the flow continues
   console.warn('[generate-room] all Gemini image models failed:', lastErr.slice(0, 200))
   return json({
     imageUrl: `data:${detectMimeType(imageBase64)};base64,${imageBase64}`,
@@ -419,6 +590,8 @@ export default {
 
     if (url.pathname === '/api/analyze-room' && request.method === 'POST') {
       res = await handleAnalyzeRoom(request, env)
+    } else if (url.pathname === '/api/design-room' && request.method === 'POST') {
+      res = await handleDesignRoom(request, env)
     } else if (url.pathname === '/api/generate-room' && request.method === 'POST') {
       res = await handleGenerateRoom(request, env)
     } else if (url.pathname === '/api/locate-products' && request.method === 'POST') {

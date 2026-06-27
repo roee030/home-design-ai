@@ -1,8 +1,8 @@
 import type {
   AnalyzeRoomParams,
   AnalyzeRoomResult,
-  GenerateRoomParams,
-  GenerateRoomResult,
+  DesignRoomParams,
+  DesignRoomResult,
   LocateProductsParams,
   LocateProductsResult,
 } from './types'
@@ -25,7 +25,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
-// Step 1: analyze original image → select catalog products + estimated positions
+// Step 1: Analyze original image → select catalog products with estimated positions
 export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoomResult> {
   if (!API_BASE) {
     logger.info('No VITE_API_URL — using mock analysis')
@@ -45,25 +45,26 @@ export async function analyzeRoom(params: AnalyzeRoomParams): Promise<AnalyzeRoo
   }
 }
 
-// Step 2: generate new room image with specific products placed in it
-export async function generateRoom(params: GenerateRoomParams): Promise<GenerateRoomResult> {
+// Step 2: Composite room — send room image + actual product images at known positions
+// This replaces both the old generateRoom + locateProducts steps.
+// Positions are INPUT not output: the AI places products where we tell it to.
+export async function designRoom(params: DesignRoomParams): Promise<DesignRoomResult> {
   if (!API_BASE) {
-    return { imageUrl: '', fallback: true }
+    return { imageUrl: '', placements: params.placements, fallback: true }
   }
   try {
-    const result = await post<GenerateRoomResult>('/api/generate-room', params)
-    logger.info('Room generation complete', { fallback: result.fallback ?? false })
+    const result = await post<DesignRoomResult>('/api/design-room', params)
+    logger.info('Room design complete', { fallback: result.fallback ?? false })
     return result
   } catch (err) {
-    logger.warn('generateRoom failed', { err: String(err) })
-    return { imageUrl: '', fallback: true }
+    logger.warn('designRoom failed', { err: String(err) })
+    return { imageUrl: '', placements: params.placements, fallback: true }
   }
 }
 
-// Step 3: locate each product in the generated image → precise pin positions
+// Legacy: locate products in a generated image (no longer used in main flow)
 export async function locateProducts(params: LocateProductsParams): Promise<LocateProductsResult> {
   if (!API_BASE) throw new Error('No API_BASE')
-
   const result = await post<LocateProductsResult>('/api/locate-products', params)
   logger.info('Product location complete', { placements: result.placements?.length ?? 0 })
   return result

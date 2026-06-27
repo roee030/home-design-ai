@@ -5,37 +5,28 @@ import { useCanvasStore } from '@/stores/canvasStore'
 import { analytics } from '@/utils/analytics'
 import { logger } from '@/utils/logger'
 import { imageUrlToBase64 } from '@/utils/imageUtils'
-import { analyzeRoom, generateRoom, locateProducts } from '@/api/aiService'
+import { analyzeRoom, designRoom } from '@/api/aiService'
 import { MOCK_TENANT } from '@/constants/mockTenant'
 import { DESIGN_STYLES } from '@/constants/designStyles'
 import type { TenantConfig, CanvasItem } from '@/types'
-import type { AIProductPlacement } from '@/api/types'
+import type { DesignPlacement } from '@/api/types'
 import styles from './Processing.module.css'
 
-type Phase =
-  | 'loading-image'
-  | 'analyzing'
-  | 'generating'
-  | 'locating'
-  | 'placing'
-  | 'done'
-  | 'error'
+type Phase = 'loading-image' | 'analyzing' | 'designing' | 'placing' | 'done' | 'error'
 
 const PHASE_LABELS: Record<Phase, string> = {
   'loading-image': 'Loading your room…',
   analyzing:       'Selecting furniture for your space…',
-  generating:      'Generating your AI redesign…',
-  locating:        'Pinning items to your new room…',
+  designing:       'Compositing your AI redesign…',
   placing:         'Finalising your design…',
   done:            'Your design is ready ✦',
   error:           'Using a curated design for you…',
 }
 
 const PHASE_PROGRESS: Record<Phase, number> = {
-  'loading-image': 8,
-  analyzing:       30,
-  generating:      60,
-  locating:        82,
+  'loading-image': 10,
+  analyzing:       35,
+  designing:       78,
   placing:         94,
   done:            100,
   error:           100,
@@ -44,11 +35,16 @@ const PHASE_PROGRESS: Record<Phase, number> = {
 interface Props { tenant: TenantConfig }
 
 export function Processing({ tenant }: Props) {
-  const { uploadedImageUrl, selectedStyle, goTo, setGeneratedImage, setStyleDescription, setHasAIAnalysis } =
-    useWidgetStore()
-  const setCanvasItems      = useCanvasStore((s) => s.setItems)
-  const setRoomAIGenerated  = useCanvasStore((s) => s.setRoomAIGenerated)
-  const resetCanvas         = useCanvasStore((s) => s.reset)
+  const {
+    uploadedImageUrl, selectedStyle, goTo,
+    setGeneratedImage, setStyleDescription, setHasAIAnalysis,
+    setRoomImageBase64, addShownProducts, shownProductIds,
+  } = useWidgetStore()
+
+  const setCanvasItems         = useCanvasStore((s) => s.setItems)
+  const setRoomAIGenerated     = useCanvasStore((s) => s.setRoomAIGenerated)
+  const setDesignPlacements    = useCanvasStore((s) => s.setDesignPlacements)
+  const resetCanvas            = useCanvasStore((s) => s.reset)
 
   const [phase, setPhase] = useState<Phase>('loading-image')
   const ran = useRef(false)
@@ -67,74 +63,58 @@ export function Processing({ tenant }: Props) {
         // ── 1. Load image ────────────────────────────────────────────────
         setPhase('loading-image')
         const imageBase64 = await imageUrlToBase64(uploadedImageUrl)
+        setRoomImageBase64(imageBase64) // store for later re-generation on swap
 
-        // ── 2. Analyze original image → select catalog products ──────────
-        // This tells us WHAT to add and approximately WHERE (in original image coords)
+        // ── 2. Analyze room → choose products + positions ────────────────
+        // Pass previously shown products so AI picks fresh items each time
         setPhase('analyzing')
-        const selection = await analyzeRoom({ imageBase64, style: selectedStyle })
+        const selection = await analyzeRoom({
+          imageBase64,
+          style: selectedStyle,
+          excludeProductIds: shownProductIds,
+        })
         logger.info('Products selected', { count: selection.selectedProducts.length })
 
-        // ── 3. Build product descriptions for image generation ───────────
-        const productDescriptions = selection.selectedProducts
-          .map((p) => {
-            const product = MOCK_TENANT.catalog.find((c) => c.id === p.productId)
-            const variant = product?.variants.find((v) => v.id === p.variantId) ?? product?.variants[0]
-            return product ? `${product.name} (${variant?.name ?? ''}, ${product.category})` : null
+        // ── 3. Build design placements (product image URLs included) ─────
+        const placements: DesignPlacement[] = selection.selectedProducts
+          .map((sp) => {
+            const product = MOCK_TENANT.catalog.find((c) => c.id === sp.productId)
+            const variant = product?.variants.find((v) => v.id === sp.variantId) ?? product?.variants[0]
+            if (!product || !variant) return null
+            return {
+              ...sp,
+              imageUrl:  variant.imageUrl ?? product.thumbnailUrl,
+              name:      product.name,
+              category:  product.category,
+            }
           })
-          .filter((d): d is string => Boolean(d))
+          .filter((p): p is DesignPlacement => p !== null)
 
-        // ── 4. Generate redesigned room WITH those specific products ──────
-        setPhase('generating')
-        let finalImageUrl = uploadedImageUrl!
-        let generatedBase64: string | null = null
+        // ── 4. Design room — send room + product images at positions ─────
+        // AI sees the actual product photos and composites them into the room
+        setPhase('designing')
+        let finalImageUrl = uploadedImageUrl
         let roomWasAIGenerated = false
 
         try {
-          const genResult = await generateRoom({
-            imageBase64,
+          const designResult = await designRoom({
+            roomImageBase64: imageBase64,
             style: selectedStyle,
-            products: productDescriptions,
+            placements,
           })
-          if (!genResult.fallback && genResult.imageUrl) {
-            finalImageUrl = genResult.imageUrl
-            generatedBase64 = await imageUrlToBase64(finalImageUrl)
+          if (!designResult.fallback && designResult.imageUrl) {
+            finalImageUrl = designResult.imageUrl
             roomWasAIGenerated = true
-            logger.info('Room generated with products')
+            logger.info('Room designed with product images')
           }
         } catch (err) {
-          logger.warn('generateRoom failed — using original photo', { err: String(err) })
+          logger.warn('designRoom failed — using original photo', { err: String(err) })
         }
 
-        // ── 5. Locate products in generated image (or use original coords) ──
-        setPhase('locating')
-        let finalPlacements: AIProductPlacement[] = selection.selectedProducts
-
-        if (generatedBase64) {
-          try {
-            const locateInput = selection.selectedProducts.map((p) => {
-              const product = MOCK_TENANT.catalog.find((c) => c.id === p.productId)
-              const variant = product?.variants.find((v) => v.id === p.variantId) ?? product?.variants[0]
-              return {
-                productId:   p.productId,
-                variantId:   p.variantId,
-                name:        product?.name ?? p.productId,
-                description: `${variant?.name ?? ''} ${product?.category ?? ''}`.trim(),
-              }
-            })
-
-            const located = await locateProducts({ imageBase64: generatedBase64, products: locateInput })
-            if (located.placements?.length) {
-              finalPlacements = located.placements
-              logger.info('Products located in generated image', { count: finalPlacements.length })
-            }
-          } catch (err) {
-            logger.warn('locateProducts failed — using original positions', { err: String(err) })
-          }
-        }
-
-        // ── 6. Build canvas items ────────────────────────────────────────
+        // ── 5. Build canvas items from KNOWN positions (from analysis) ───
+        // Positions come from step 2 — no locate step needed
         setPhase('placing')
-        const canvasItems: CanvasItem[] = finalPlacements.map((p, i) => ({
+        const canvasItems: CanvasItem[] = placements.map((p, i) => ({
           id:        `ai-${p.productId}-${i}`,
           productId: p.productId,
           variantId: p.variantId,
@@ -147,12 +127,17 @@ export function Processing({ tenant }: Props) {
           viewAngle: p.viewAngle,
         }))
 
+        // ── 6. Commit to stores ──────────────────────────────────────────
         resetCanvas()
         setCanvasItems(canvasItems)
+        setDesignPlacements(placements)  // save full placements for swap re-generation
         setRoomAIGenerated(roomWasAIGenerated)
         setGeneratedImage(finalImageUrl)
         setStyleDescription(selection.styleDescription)
         setHasAIAnalysis(selection.isAIGenerated)
+
+        // Track shown products for variety on next design run
+        addShownProducts(placements.map((p) => p.productId))
 
         await delay(600)
         setPhase('done')
@@ -190,9 +175,9 @@ export function Processing({ tenant }: Props) {
           className={styles.orbInner}
           animate={{
             scale:   phase === 'done' ? [1, 1.2, 1] : [1, 1.1, 1],
-            opacity: phase === 'done' ? [1, 0.8, 1] : [0.6, 1, 0.6],
+            opacity: phase === 'done' ? [1, 0.7, 1] : [0.5, 1, 0.5],
           }}
-          transition={{ repeat: Infinity, duration: phase === 'done' ? 1 : 2, ease: 'easeInOut' }}
+          transition={{ repeat: Infinity, duration: phase === 'done' ? 1 : 2.2, ease: 'easeInOut' }}
         />
         <motion.span
           className={styles.orbIcon}

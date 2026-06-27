@@ -6,27 +6,35 @@ import { MOCK_TENANT } from '@/constants/mockTenant'
 import { ROOM_IMAGE_URL } from '@/constants/mockCanvas'
 import { ProductLayer } from '@/widget/components/ProductLayer'
 import { analytics } from '@/utils/analytics'
+import { designRoom } from '@/api/aiService'
+import { logger } from '@/utils/logger'
 import type { TenantConfig } from '@/types'
+import type { DesignPlacement } from '@/api/types'
 import styles from './CanvasEditor.module.css'
 
 interface Props { tenant: TenantConfig }
 
 export function CanvasEditor({ tenant }: Props) {
-  const items         = useCanvasStore((s) => s.items)
-  const activeItemId  = useCanvasStore((s) => s.activeItemId)
-  const hoveredItemId = useCanvasStore((s) => s.hoveredItemId)
-  const setActive     = useCanvasStore((s) => s.setActive)
-  const swapProduct   = useCanvasStore((s) => s.swapProduct)
+  const items              = useCanvasStore((s) => s.items)
+  const activeItemId       = useCanvasStore((s) => s.activeItemId)
+  const hoveredItemId      = useCanvasStore((s) => s.hoveredItemId)
+  const designPlacements   = useCanvasStore((s) => s.designPlacements)
+  const isRegenerating     = useCanvasStore((s) => s.isRegenerating)
+  const setActive          = useCanvasStore((s) => s.setActive)
+  const swapProduct        = useCanvasStore((s) => s.swapProduct)
+  const setIsRegenerating  = useCanvasStore((s) => s.setIsRegenerating)
+  const setDesignPlacements = useCanvasStore((s) => s.setDesignPlacements)
 
-  const generatedImageUrl = useWidgetStore((s) => s.generatedImageUrl)
-  const styleDescription  = useWidgetStore((s) => s.styleDescription)
-  const hasAIAnalysis     = useWidgetStore((s) => s.hasAIAnalysis)
+  const generatedImageUrl  = useWidgetStore((s) => s.generatedImageUrl)
+  const roomImageBase64    = useWidgetStore((s) => s.roomImageBase64)
+  const selectedStyle      = useWidgetStore((s) => s.selectedStyle)
+  const styleDescription   = useWidgetStore((s) => s.styleDescription)
+  const hasAIAnalysis      = useWidgetStore((s) => s.hasAIAnalysis)
+  const setGeneratedImage  = useWidgetStore((s) => s.setGeneratedImage)
 
   const [cartAdded, setCartAdded] = useState(false)
   const [showDesc, setShowDesc]   = useState(true)
 
-  // Image coordinates: track where the image is actually rendered
-  // (object-fit: contain may add letterbox bars)
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef       = useRef<HTMLImageElement>(null)
   const [imgBounds, setImgBounds] = useState({ left: 0, top: 0, width: 0, height: 0 })
@@ -44,12 +52,7 @@ export function CanvasEditor({ tenant }: Props) {
     const w = img.naturalWidth * scale
     const h = img.naturalHeight * scale
 
-    setImgBounds({
-      left:   (cW - w) / 2,
-      top:    (cH - h) / 2,
-      width:  w,
-      height: h,
-    })
+    setImgBounds({ left: (cW - w) / 2, top: (cH - h) / 2, width: w, height: h })
   }, [])
 
   useEffect(() => {
@@ -69,6 +72,61 @@ export function CanvasEditor({ tenant }: Props) {
     const variant = product?.variants.find((v) => v.id === item.variantId)
     return sum + (product?.basePrice ?? 0) + (variant?.priceDelta ?? 0)
   }, 0)
+
+  // Swap a product AND trigger AI re-design with new product image at same position
+  const handleSwap = async (itemId: string, newProductId: string, newVariantId: string) => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
+
+    // Update canvas item immediately (instant chip feedback)
+    swapProduct(itemId, newProductId, newVariantId)
+
+    // Re-design: rebuild placements with swapped product, same positions
+    if (!roomImageBase64 || !selectedStyle) return
+
+    const newProduct = MOCK_TENANT.catalog.find((p) => p.id === newProductId)
+    const newVariant = newProduct?.variants.find((v) => v.id === newVariantId) ?? newProduct?.variants[0]
+    if (!newProduct || !newVariant) return
+
+    const currentPlacements = designPlacements.length > 0
+      ? designPlacements
+      : items.map((ci) => {
+          const p = MOCK_TENANT.catalog.find((cp) => cp.id === ci.productId)
+          const v = p?.variants.find((cv) => cv.id === ci.variantId) ?? p?.variants[0]
+          return p && v
+            ? { productId: ci.productId, variantId: ci.variantId,
+                imageUrl: v.imageUrl ?? p.thumbnailUrl, name: p.name, category: p.category,
+                x: ci.x, y: ci.y, width: ci.width, height: ci.height,
+                zIndex: ci.zIndex, viewAngle: ci.viewAngle } as DesignPlacement
+            : null
+        }).filter((p): p is DesignPlacement => p !== null)
+
+    const newPlacements: DesignPlacement[] = currentPlacements.map((p) =>
+      p.productId === item.productId && p.variantId === item.variantId
+        ? { ...p, productId: newProductId, variantId: newVariantId,
+            imageUrl: newVariant.imageUrl ?? newProduct.thumbnailUrl,
+            name: newProduct.name, category: newProduct.category }
+        : p
+    )
+
+    setIsRegenerating(true)
+    try {
+      const result = await designRoom({
+        roomImageBase64,
+        style: selectedStyle,
+        placements: newPlacements,
+      })
+      if (!result.fallback && result.imageUrl) {
+        setGeneratedImage(result.imageUrl)
+        setDesignPlacements(newPlacements)
+        logger.info('Swap re-design complete')
+      }
+    } catch (err) {
+      logger.warn('Swap re-design failed', { err: String(err) })
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
 
   const handleAddAll = () => {
     analytics.addToCart(tenant.id, items.map((i) => i.productId), totalPrice)
@@ -90,7 +148,6 @@ export function CanvasEditor({ tenant }: Props) {
           setActive(null)
         }}
       >
-        {/* Room image — object-fit: contain so coordinates align with pins */}
         <img
           ref={imgRef}
           src={roomImage}
@@ -100,25 +157,17 @@ export function CanvasEditor({ tenant }: Props) {
           onLoad={recalcBounds}
         />
 
-        {/* Home button — top-left overlay */}
-        <button
-          className={styles.homeBtn}
-          onClick={() => { window.location.hash = '/' }}
-        >
+        {/* Home button */}
+        <button className={styles.homeBtn} onClick={() => { window.location.hash = '/' }}>
           ← Home
         </button>
 
-        {/* Pin overlay — positioned exactly over the displayed image area */}
+        {/* Pin overlay */}
         {imgBounds.width > 0 && (
           <div
             className={styles.pinOverlay}
             data-canvas
-            style={{
-              left:   imgBounds.left,
-              top:    imgBounds.top,
-              width:  imgBounds.width,
-              height: imgBounds.height,
-            }}
+            style={{ left: imgBounds.left, top: imgBounds.top, width: imgBounds.width, height: imgBounds.height }}
           >
             {items.map((item) => {
               const isHighlighted = item.id === activeItemId || item.id === hoveredItemId
@@ -131,10 +180,8 @@ export function CanvasEditor({ tenant }: Props) {
                       <motion.div
                         className={styles.boundingBox}
                         style={{
-                          left:   `${item.x}%`,
-                          top:    `${item.y}%`,
-                          width:  `${item.width}%`,
-                          height: `${item.height}%`,
+                          left: `${item.x}%`, top: `${item.y}%`,
+                          width: `${item.width}%`, height: `${item.height}%`,
                           borderColor: bVariant?.color ?? 'var(--tenant-accent, #C9A84C)',
                         }}
                         initial={{ opacity: 0 }}
@@ -151,14 +198,29 @@ export function CanvasEditor({ tenant }: Props) {
           </div>
         )}
 
-        {/* Badge when AI analysis unavailable */}
+        {/* Regenerating overlay */}
+        <AnimatePresence>
+          {isRegenerating && (
+            <motion.div
+              className={styles.regenOverlay}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className={styles.regenSpinner}>✦</div>
+              <p className={styles.regenText}>Redesigning with new product…</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Demo badge */}
         {!hasAIAnalysis && (
           <div className={styles.demoBadge}>
-            {items.length === 0 ? '⚡ AI analysis unavailable — pins coming soon' : '📍 Demo layout'}
+            {items.length === 0 ? '⚡ AI analysis unavailable' : '📍 Demo layout'}
           </div>
         )}
 
-        {/* Style description overlay */}
+        {/* Style description */}
         <AnimatePresence>
           {showDesc && styleDescription && (
             <motion.div
@@ -174,7 +236,6 @@ export function CanvasEditor({ tenant }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Hint badge */}
         <div className={styles.hintBadge}>
           <span>✦</span> Click pins for product details
         </div>
@@ -182,7 +243,7 @@ export function CanvasEditor({ tenant }: Props) {
 
       {/* ── Bottom bar ── */}
       <div className={styles.bottomBar}>
-        {/* Item chips — color dot updates live on variant swap */}
+        {/* Item chips */}
         <div className={styles.chipRow}>
           {items.map((item) => {
             const product = MOCK_TENANT.catalog.find((p) => p.id === item.productId)
@@ -211,7 +272,7 @@ export function CanvasEditor({ tenant }: Props) {
           })}
         </div>
 
-        {/* ── Swap similar items (shows when a pin is active) ── */}
+        {/* Swap row — shows similar products + triggers AI redesign */}
         {activeItemId && (() => {
           const activeItem    = items.find((i) => i.id === activeItemId)
           const activeProduct = activeItem && MOCK_TENANT.catalog.find((p) => p.id === activeItem.productId)
@@ -221,15 +282,19 @@ export function CanvasEditor({ tenant }: Props) {
           if (!activeProduct || !similar.length) return null
           return (
             <div className={styles.swapRow}>
-              <span className={styles.swapLabel}>↔ Swap {activeProduct.category}</span>
+              <span className={styles.swapLabel}>
+                ↔ Swap {activeProduct.category}
+                {roomImageBase64 && <span className={styles.swapHint}> · redesigns automatically</span>}
+              </span>
               <div className={styles.swapScroll}>
                 {similar.map((p) => (
                   <motion.button
                     key={p.id}
                     className={styles.swapCard}
-                    onClick={() => swapProduct(activeItemId, p.id, p.variants[0].id)}
+                    onClick={() => handleSwap(activeItemId, p.id, p.variants[0].id)}
                     whileHover={{ y: -2, scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
+                    disabled={isRegenerating}
                     layout
                   >
                     <img src={p.thumbnailUrl} alt={p.name} className={styles.swapThumb} />
@@ -256,7 +321,7 @@ export function CanvasEditor({ tenant }: Props) {
             <AnimatePresence mode="wait">
               {cartAdded
                 ? <motion.span key="done" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>✓ Added to Cart</motion.span>
-                : <motion.span key="cta" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>Add Room to Cart →</motion.span>
+                : <motion.span key="cta"  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>Add Room to Cart →</motion.span>
               }
             </AnimatePresence>
           </motion.button>

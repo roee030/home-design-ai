@@ -1,6 +1,7 @@
 export interface AnalyzeRoomParams {
   imageBase64: string
   style: string
+  excludeProductIds?: string[] // products shown in previous designs (for variety)
 }
 
 export interface AIProductPlacement {
@@ -21,16 +22,27 @@ export interface AnalyzeRoomResult {
   isAIGenerated: boolean
 }
 
-export interface GenerateRoomParams {
-  imageBase64: string
-  style: string
-  products?: string[]  // product names to include in the redesign
+// ── New: multi-image composite approach ──────────────────────────────
+
+export interface DesignPlacement extends AIProductPlacement {
+  imageUrl: string   // product image URL (thumbnail) sent as visual reference to AI
+  name: string
+  category: string
 }
 
-export interface GenerateRoomResult {
-  imageUrl: string
-  fallback?: boolean  // true = Gemini image gen failed, imageUrl is the original photo
+export interface DesignRoomParams {
+  roomImageBase64: string
+  style: string
+  placements: DesignPlacement[]
 }
+
+export interface DesignRoomResult {
+  imageUrl: string
+  placements: DesignPlacement[] // same positions that were sent in
+  fallback?: boolean             // true = AI failed, original room returned
+}
+
+// ── Kept for backwards compat (locate is no longer used) ─────────────
 
 export interface LocateProductInput {
   productId: string
@@ -46,4 +58,17 @@ export interface LocateProductsParams {
 
 export interface LocateProductsResult {
   placements: AIProductPlacement[]
+}
+
+// ── Legacy GenerateRoom (kept for worker compat) ──────────────────────
+
+export interface GenerateRoomParams {
+  imageBase64: string
+  style: string
+  products?: string[]
+}
+
+export interface GenerateRoomResult {
+  imageUrl: string
+  fallback?: boolean
 }
