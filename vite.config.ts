@@ -12,7 +12,15 @@ export default defineConfig({
   define: {
     __GIT_HASH__: JSON.stringify(gitHash),
   },
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: [
+          ['babel-plugin-react-compiler', { target: '18' }],
+        ],
+      },
+    }),
+  ],
   base: '/home-design-ai/',
   resolve: {
     alias: {
@@ -23,7 +31,6 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
-  // In dev, proxy /api/* to the local Cloudflare Worker (wrangler dev on :8787)
   server: {
     proxy: {
       '/api': {

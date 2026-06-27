@@ -22,7 +22,7 @@ const STEPS = [
 ]
 
 const FEATURES = [
-  { label: 'AI-Powered', value: 'Gemini 2.0 + FLUX' },
+  { label: 'AI-Powered', value: 'Gemini AI' },
   { label: 'Products', value: String(MOCK_TENANT.catalog.length) + ' items' },
   { label: 'Styles', value: '7 design styles' },
   { label: 'Time to design', value: '< 30 seconds' },
@@ -42,7 +42,7 @@ export function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            ✦ Powered by Gemini AI × fal.ai
+            ✦ Powered by Gemini AI
           </motion.div>
 
           <motion.h1
@@ -95,7 +95,7 @@ export function HomePage() {
             <div className={styles.heroImgOverlay} />
             <div className={styles.heroPinDemo}>
               <span className={styles.heroPinDot} />
-              <div className={styles.heroPinCard}>Oslo Velvet Sofa · ₪2,799</div>
+              <div className={styles.heroPinCard}>Curve Bouclé Sofa · ₪5,490</div>
             </div>
           </motion.div>
         </div>
@@ -181,7 +181,7 @@ export function HomePage() {
       {/* ── Footer ─────────────────────────────────────────────── */}
       <footer className={styles.footer}>
         <span className={styles.footerLogo}>✦ ShopTheRoom AI</span>
-        <span className={styles.footerCopy}>© 2026 FurniStyle · Powered by Gemini AI × fal.ai</span>
+        <span className={styles.footerCopy}>© 2026 FurniStyle · Powered by Gemini AI</span>
       </footer>
     </div>
   )

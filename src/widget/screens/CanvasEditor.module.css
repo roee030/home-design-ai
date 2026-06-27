@@ -24,8 +24,7 @@
   user-select: none;
 }
 
-/* Transparent absolute overlay sized to the ACTUAL displayed image area.
-   Pins inside it are positioned in % of the real image, not the container. */
+/* Transparent absolute overlay sized to the ACTUAL displayed image area */
 .pinOverlay {
   position: absolute;
   pointer-events: none;
@@ -37,15 +36,15 @@
   top: 14px;
   left: 14px;
   z-index: 20;
-  background: rgba(10, 10, 18, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
+  background: rgba(10, 10, 18, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   letter-spacing: 0.01em;
   transition: background 0.15s, color 0.15s;
@@ -53,11 +52,11 @@
   font-family: var(--tenant-font, Inter, sans-serif);
 }
 .homeBtn:hover {
-  background: rgba(30, 30, 46, 0.9);
+  background: rgba(30, 30, 46, 0.88);
   color: #fff;
 }
 
-/* Bounding box overlay — rendered inside pinOverlay at item bounds */
+/* Bounding box overlay */
 .boundingBox {
   position: absolute;
   border: 2px solid;
@@ -66,17 +65,17 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
-/* Small corner badge when using demo/mock positions */
+/* Demo badge */
 .demoBadge {
   position: absolute;
   bottom: 14px;
   right: 14px;
-  background: rgba(20, 20, 30, 0.6);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px;
+  background: rgba(20, 20, 30, 0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
   padding: 4px 10px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
   pointer-events: none;
   backdrop-filter: blur(8px);
@@ -88,11 +87,11 @@
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(420px, 88%);
-  background: rgba(10, 10, 18, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: min(400px, 86%);
+  background: rgba(10, 10, 18, 0.85);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
   padding: 10px 36px 10px 14px;
   display: flex;
@@ -102,8 +101,8 @@
 
 .descText {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.78);
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.55;
 }
 
 .descClose {
@@ -113,33 +112,33 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.35);
   font-size: 12px;
   cursor: pointer;
   padding: 4px;
   line-height: 1;
 }
-.descClose:hover { color: rgba(255,255,255,0.8); }
+.descClose:hover { color: rgba(255,255,255,0.75); }
 
+/* Hint pill */
 .hintBadge {
   position: absolute;
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 5px 14px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.72);
   white-space: nowrap;
   pointer-events: none;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
-
 .hintBadge span {
   color: var(--tenant-accent, #C9A84C);
 }
@@ -147,22 +146,21 @@
 /* ─── Bottom bar ─── */
 .bottomBar {
   flex-shrink: 0;
-  background: rgba(18, 18, 24, 0.97);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(14, 14, 20, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* Item chips row */
+/* Chips row */
 .chipRow {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   overflow-x: auto;
   padding-bottom: 2px;
 }
-
 .chipRow::-webkit-scrollbar { display: none; }
 
 .chip {
@@ -170,18 +168,15 @@
   align-items: center;
   gap: 6px;
   padding: 5px 11px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
   cursor: pointer;
   flex-shrink: 0;
   font-family: var(--tenant-font, Inter, sans-serif);
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.12s, border-color 0.12s;
 }
-
-.chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+.chip:hover { background: rgba(255, 255, 255, 0.09); }
 
 .chipActive {
   border-color: var(--tenant-accent, #C9A84C);
@@ -189,8 +184,8 @@
 }
 
 .chipDot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
   transition: background 0.3s ease;
@@ -198,7 +193,7 @@
 
 .chipName {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.68);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -206,16 +201,16 @@
 .chipPrice {
   font-size: 11px;
   color: var(--tenant-accent, #C9A84C);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* Swap similar items row */
+/* Swap row */
 .swapRow {
   display: flex;
   flex-direction: column;
   gap: 7px;
   padding: 8px 0 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .swapLabel {
@@ -223,7 +218,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.32);
   padding: 0 2px;
 }
 
@@ -233,7 +228,6 @@
   overflow-x: auto;
   padding-bottom: 2px;
 }
-
 .swapScroll::-webkit-scrollbar { display: none; }
 
 .swapCard {
@@ -242,19 +236,18 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
   padding: 8px 10px;
   cursor: pointer;
   font-family: var(--tenant-font, Inter, sans-serif);
   width: 80px;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.12s, background 0.12s;
 }
-
 .swapCard:hover {
   border-color: var(--tenant-accent, #C9A84C);
-  background: rgba(201, 168, 76, 0.1);
+  background: rgba(201, 168, 76, 0.08);
 }
 
 .swapThumb {
@@ -268,7 +261,7 @@
 .swapName {
   font-size: 9px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.68);
   text-align: center;
   line-height: 1.3;
   white-space: nowrap;
@@ -299,7 +292,7 @@
 
 .totalLabel {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.32);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
@@ -314,27 +307,29 @@
 
 .cartBtn {
   flex-shrink: 0;
-  padding: 11px 24px;
+  padding: 12px 26px;
   background: var(--tenant-accent, #C9A84C);
   color: var(--tenant-primary, #1A1A2E);
   border: none;
   border-radius: var(--tenant-radius-button, 12px);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   font-family: var(--tenant-font, Inter, sans-serif);
   white-space: nowrap;
   letter-spacing: 0.01em;
   min-width: 180px;
   text-align: center;
-  transition: background 0.25s;
+  transition: opacity 0.2s;
 }
+.cartBtn:hover { opacity: 0.9; }
 
 .cartAdded {
   background: #22c55e;
   color: #fff;
   cursor: default;
 }
+.cartAdded:hover { opacity: 1; }
 
 @media (max-width: 520px) {
   .hintBadge { display: none; }

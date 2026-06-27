@@ -72,16 +72,16 @@ export async function locateProducts(params: LocateProductsParams): Promise<Loca
 function getMockAnalysis(): AnalyzeRoomResult {
   return {
     selectedProducts: [
-      { productId: 'bed-frame-oak',       variantId: 'bed-oak-natural',     x: 20, y: 38, width: 50, height: 40, zIndex: 1, viewAngle:   0 },
-      { productId: 'nightstand-linen',    variantId: 'nightstand-beige',    x:  8, y: 58, width: 17, height: 28, zIndex: 2, viewAngle:  30 },
-      { productId: 'nightstand-linen',    variantId: 'nightstand-charcoal', x: 74, y: 58, width: 17, height: 28, zIndex: 2, viewAngle: -30 },
-      { productId: 'lamp-rattan-pendant', variantId: 'lamp-rattan-natural', x: 22, y:  2, width: 10, height: 36, zIndex: 3, viewAngle:  10 },
-      { productId: 'lamp-rattan-pendant', variantId: 'lamp-rattan-black',   x: 67, y:  2, width: 10, height: 36, zIndex: 3, viewAngle: -10 },
-      { productId: 'rug-wool',            variantId: 'rug-wool-sand',       x: 10, y: 72, width: 50, height: 23, zIndex: 1, viewAngle:   0 },
-      { productId: 'mirror-round',        variantId: 'mirror-gold-frame',   x: 83, y: 14, width: 12, height: 40, zIndex: 2, viewAngle: -45 },
+      { productId: 'bed-linen-platform',  variantId: 'bed-linen-natural',      x: 20, y: 38, width: 50, height: 40, zIndex: 1, viewAngle:   0 },
+      { productId: 'nightstand-pebble',   variantId: 'nightstand-oak',         x:  8, y: 58, width: 17, height: 28, zIndex: 2, viewAngle:  30 },
+      { productId: 'nightstand-pebble',   variantId: 'nightstand-walnut',      x: 74, y: 58, width: 17, height: 28, zIndex: 2, viewAngle: -30 },
+      { productId: 'lamp-globe-pendant',  variantId: 'globe-smoke-brass',      x: 22, y:  2, width: 10, height: 36, zIndex: 3, viewAngle:  10 },
+      { productId: 'lamp-globe-pendant',  variantId: 'globe-clear-chrome',     x: 67, y:  2, width: 10, height: 36, zIndex: 3, viewAngle: -10 },
+      { productId: 'rug-beni',            variantId: 'rug-beni-natural',       x: 10, y: 72, width: 50, height: 23, zIndex: 1, viewAngle:   0 },
+      { productId: 'mirror-arch',         variantId: 'mirror-arch-black',      x: 83, y: 14, width: 12, height: 40, zIndex: 2, viewAngle: -45 },
     ],
-    totalPrice: 3200 + 520 + 520 + 320 + 320 + 680 + 480,
-    styleDescription: 'Japandi bedroom with natural oak bed, linen nightstands, and rattan pendant lights.',
+    totalPrice: 4890 + 890 + 890 + 590 + 590 + 1890 + 1090,
+    styleDescription: 'Japandi bedroom with a linen platform bed, pebble nightstands, globe pendants, and a hand-loomed Beni rug.',
     isAIGenerated: false,
   }
 }

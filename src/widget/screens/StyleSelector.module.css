@@ -2,25 +2,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 24px;
+  gap: 20px;
+  padding: 24px 20px 28px;
   height: 100%;
   overflow-y: auto;
 }
 
 .title {
   font-size: 22px;
-  font-weight: 700;
-  color: var(--tenant-primary, #1A1A2E);
+  font-weight: 800;
+  color: #111;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #666;
+  font-size: 13px;
+  color: #888;
   margin: 0;
+  text-align: center;
 }
 
+/* ── Style card grid ──────────────────────────────────── */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -30,51 +33,112 @@
 }
 
 .styleCard {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 14px;
-  background: #fff;
-  border: 2px solid #e8e8e8;
+  position: relative;
+  aspect-ratio: 4/3;
   border-radius: 14px;
+  overflow: hidden;
   cursor: pointer;
-  text-align: left;
-  font-family: var(--tenant-font, Inter, sans-serif);
-  transition: border-color 0.18s, box-shadow 0.18s;
+  border: 2.5px solid transparent;
+  outline: none;
+  transition: border-color 0.18s;
+  background: #E8E4DF;
 }
 
-.selected {
-  border-color: var(--tenant-accent, #C9A84C);
-  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.15);
-  background: rgba(201, 168, 76, 0.04);
+.styleCard:focus-visible {
+  border-color: var(--tenant-primary, #1A1A2E);
 }
 
-.palette {
+.styleCard.selected {
+  border-color: var(--tenant-primary, #1A1A2E);
+}
+
+/* Room image fills the card */
+.cardImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.38s ease;
+}
+
+.styleCard:hover .cardImg {
+  transform: scale(1.06);
+}
+
+/* Dark scrim from bottom */
+.cardScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10, 10, 16, 0.72) 0%, rgba(10,10,16,0.15) 55%, transparent 100%);
+  transition: opacity 0.2s;
+}
+
+/* Tick badge when selected */
+.selectedTick {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 22px;
+  height: 22px;
+  background: var(--tenant-primary, #1A1A2E);
+  border-radius: 50%;
   display: flex;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Palette dots at top-left */
+.palette {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  display: flex;
+  gap: 3px;
 }
 
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.6);
 }
 
-.emoji { font-size: 20px; }
+/* Name + description at bottom */
+.cardBottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 11px 12px;
+}
+
+.emoji {
+  font-size: 14px;
+  margin-bottom: 2px;
+  display: block;
+}
 
 .label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #fff;
+  letter-spacing: 0.01em;
+  display: block;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
 .desc {
-  font-size: 11px;
-  color: #888;
+  font-size: 10px;
+  color: rgba(255,255,255,0.65);
   line-height: 1.4;
+  display: block;
+  margin-top: 1px;
 }
 
+/* ── Continue button ──────────────────────────────────── */
 .nextBtn {
   width: 100%;
   max-width: 440px;
@@ -84,13 +148,18 @@
   border: none;
   border-radius: var(--tenant-radius-button, 12px);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   font-family: var(--tenant-font, Inter, sans-serif);
   transition: opacity 0.2s;
+  letter-spacing: 0.01em;
 }
 
 .nextBtn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
+}
+
+.nextBtn:not(:disabled):hover {
+  opacity: 0.85;
 }

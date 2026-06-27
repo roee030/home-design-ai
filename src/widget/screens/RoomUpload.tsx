@@ -6,42 +6,12 @@ import type { TenantConfig } from '@/types'
 import styles from './RoomUpload.module.css'
 
 const TEMPLATES = [
-  {
-    id: 'living-room',
-    label: 'Living Room',
-    emoji: '🛋️',
-    url: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=1200&q=85',
-  },
-  {
-    id: 'bedroom',
-    label: 'Bedroom',
-    emoji: '🛏️',
-    url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=1200&q=85',
-  },
-  {
-    id: 'dining-room',
-    label: 'Dining Room',
-    emoji: '🍽️',
-    url: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=1200&q=85',
-  },
-  {
-    id: 'kitchen',
-    label: 'Kitchen',
-    emoji: '🍳',
-    url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&q=85',
-  },
-  {
-    id: 'home-office',
-    label: 'Home Office',
-    emoji: '💻',
-    url: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=1200&q=85',
-  },
-  {
-    id: 'kids-room',
-    label: 'Kids Room',
-    emoji: '🧸',
-    url: 'https://images.unsplash.com/photo-1555436169-28b81f5ef2e4?w=1200&q=85',
-  },
+  { id: 'living-room', label: 'Living Room',  emoji: '🛋️', url: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=1200&q=85' },
+  { id: 'bedroom',     label: 'Bedroom',       emoji: '🛏️', url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=1200&q=85' },
+  { id: 'dining-room', label: 'Dining Room',   emoji: '🍽️', url: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=1200&q=85' },
+  { id: 'kitchen',     label: 'Kitchen',       emoji: '🍳', url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&q=85' },
+  { id: 'home-office', label: 'Home Office',   emoji: '💻', url: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=1200&q=85' },
+  { id: 'kids-room',   label: 'Kids Room',     emoji: '🧸', url: 'https://images.unsplash.com/photo-1555436169-28b81f5ef2e4?w=1200&q=85' },
 ]
 
 interface Props { tenant: TenantConfig }
@@ -90,7 +60,7 @@ export function RoomUpload({ tenant }: Props) {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
       >
-        Upload a photo or choose a template room below
+        Upload a photo or choose a template room
       </motion.p>
 
       {/* Upload dropzone */}
@@ -99,14 +69,19 @@ export function RoomUpload({ tenant }: Props) {
         onClick={() => inputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
-        whileHover={{ borderColor: 'var(--tenant-accent, #C9A84C)' }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.15 }}
       >
-        <span className={styles.uploadIcon}>📷</span>
+        <div className={styles.uploadIconWrap}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
         <p className={styles.dropText}>Click to upload or drag & drop</p>
-        <p className={styles.dropHint}>JPG, PNG up to 20MB</p>
+        <p className={styles.dropHint}>JPG, PNG · up to 20 MB</p>
         <input
           ref={inputRef}
           type="file"
@@ -158,7 +133,7 @@ export function RoomUpload({ tenant }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
           >
-            Click to use this room as your design base
+            Click to use this room as your base
           </motion.p>
         )}
       </AnimatePresence>

@@ -3,28 +3,31 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 32px;
   padding: 40px 28px;
   height: 100%;
-  background: var(--tenant-primary, #1A1A2E);
-  color: #fff;
+  background: #FAFAF8;
 }
 
+/* Style badge */
 .styleBadge {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 20px;
+  background: rgba(26, 26, 46, 0.06);
   border-radius: 999px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #1A1A2E;
+  letter-spacing: 0.01em;
 }
 
+/* Orb */
 .orb {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 88px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,44 +37,55 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--tenant-accent, #C9A84C) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.25) 0%, transparent 70%);
 }
 
 .orbIcon {
-  font-size: 36px;
-  color: var(--tenant-accent, #C9A84C);
+  font-size: 32px;
+  color: var(--tenant-primary, #1A1A2E);
   position: relative;
   z-index: 1;
 }
 
-.progressBar {
+/* Progress */
+.progressTrack {
   width: 100%;
-  max-width: 280px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
+  max-width: 260px;
+  height: 3px;
+  background: rgba(26, 26, 46, 0.1);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
-  background: var(--tenant-accent, #C9A84C);
+  background: var(--tenant-primary, #1A1A2E);
   border-radius: 999px;
   width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.progressDone {
+  background: #22c55e;
+}
+
+/* Step label */
 .step {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.9);
+  color: #1A1A2E;
   font-weight: 500;
   margin: 0;
   text-align: center;
   min-height: 24px;
+  letter-spacing: -0.01em;
 }
 
-.hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+/* Powered by */
+.poweredBy {
+  font-size: 11px;
+  color: rgba(26, 26, 46, 0.35);
   margin: 0;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
 }

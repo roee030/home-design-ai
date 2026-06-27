@@ -1,10 +1,10 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 10, 20, 0.6);
+  background: rgba(10, 10, 20, 0.55);
   z-index: 9998;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* ─── Embedded panel (default) ─── */
@@ -14,13 +14,13 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(480px, 96vw);
-  height: min(660px, 92vh);
-  background: var(--tenant-surface, #FAFAF8);
+  height: min(680px, 92vh);
+  background: #FAFAF8;
   border-radius: 24px;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.08),
-    0 32px 80px rgba(0, 0, 0, 0.35),
-    0 8px 24px rgba(0, 0, 0, 0.2);
+    0 0 0 1px rgba(0,0,0,0.06),
+    0 32px 80px rgba(0, 0, 0, 0.28),
+    0 8px 24px rgba(0, 0, 0, 0.12);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -28,13 +28,13 @@
   font-family: var(--tenant-font, Inter, sans-serif);
 }
 
-/* Wider for canvas/processing in embedded mode */
+/* Wider for canvas/processing */
 .fullscreen {
-  width: min(920px, 96vw);
-  height: min(720px, 94vh);
+  width: min(940px, 96vw);
+  height: min(740px, 94vh);
 }
 
-/* ─── Full-page mode (widget IS the app) ─── */
+/* ─── Full-page mode ─── */
 .fullPage {
   position: fixed;
   inset: 0;
@@ -43,7 +43,7 @@
   border-radius: 0 !important;
   box-shadow: none;
   transform: none !important;
-  background: var(--tenant-surface, #FAFAF8);
+  background: #FAFAF8;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -74,7 +74,7 @@
 .headerTitle {
   font-size: 13px;
   font-weight: 700;
-  color: var(--tenant-primary, #1A1A2E);
+  color: #111;
   letter-spacing: 0.01em;
 }
 
@@ -83,7 +83,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   color: #999;
   padding: 6px 10px;
   border-radius: 10px;
@@ -95,8 +95,8 @@
 
 .backBtn:hover,
 .closeBtn:hover {
-  color: var(--tenant-primary, #1A1A2E);
-  background: rgba(0, 0, 0, 0.06);
+  color: #111;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* ─── Body ─── */
