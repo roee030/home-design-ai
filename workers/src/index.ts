@@ -1,6 +1,5 @@
 export interface Env {
   GEMINI_API_KEY: string
-  FAL_AI_KEY: string
   ALLOWED_ORIGIN?: string
 }
 
@@ -61,12 +60,7 @@ interface AnalyzeRoomBody {
 interface GenerateRoomBody {
   imageBase64: string
   style: string
-  products?: string[]  // optional list of product names to include in the redesign
-}
-
-interface GenerateTemplateBody {
-  roomType: string
-  style?: string
+  products?: string[]
 }
 
 // ─── Style descriptions ────────────────────────────────────────────────────
@@ -91,13 +85,11 @@ function detectMimeType(base64: string): string {
   return 'image/jpeg'
 }
 
-// ─── Gemini helpers ────────────────────────────────────────────────────────
-
 function geminiUrl(model: string, key: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
 }
 
-// ─── analyze-room: Gemini vision → product placement + view angles ─────────
+// ─── analyze-room: Gemini vision → product placement ──────────────────────
 
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
@@ -228,7 +220,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
   return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
-// ─── locate-products: find where specific products appear in an image ─────────
+// ─── locate-products: find where products appear in an image ──────────────
 
 interface LocateProductsBody {
   imageBase64: string
@@ -311,7 +303,7 @@ Return ONLY valid JSON:
   return json({ error: 'locate-products failed' }, 502)
 }
 
-// ─── generate-room: Gemini image editing → fal.ai FLUX img2img fallback ──────
+// ─── generate-room: Gemini image editing ──────────────────────────────────
 
 async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as GenerateRoomBody
@@ -321,14 +313,16 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
     return json({ error: 'Missing required fields: imageBase64, style' }, 400)
   }
 
+  if (!env.GEMINI_API_KEY) {
+    return json({ error: 'GEMINI_KEY_INVALID' }, 502)
+  }
+
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
   const productLine = products?.length
     ? `Include these specific furniture pieces: ${products.join(', ')}.`
     : ''
 
-  // ── Try Gemini image editing models first ──────────────────────────────────
-  if (env.GEMINI_API_KEY) {
-    const editPrompt = `You are an expert interior designer and photo editor.
+  const editPrompt = `You are an expert interior designer and photo editor.
 
 Edit this room photo to redesign it in ${styleDesc} style.
 
@@ -342,171 +336,71 @@ Instructions:
 
 Return only the edited room photo.`
 
-    const IMAGE_EDIT_MODELS = [
-      'gemini-2.0-flash-exp',
-      'gemini-2.0-flash-preview-image-generation',
-      'gemini-2.5-flash-preview-image-generation',
-    ]
+  const IMAGE_EDIT_MODELS = [
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-preview-image-generation',
+    'gemini-2.5-flash-preview-image-generation',
+  ]
 
-    const geminiBody = JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
-          { text: editPrompt },
-        ],
-      }],
-      generationConfig: {
-        responseModalities: ['IMAGE'],
-        temperature: 0.3,
-      },
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
+        { text: editPrompt },
+      ],
+    }],
+    generationConfig: {
+      responseModalities: ['IMAGE'],
+      temperature: 0.3,
+    },
+  })
+
+  let lastErr = ''
+  for (const model of IMAGE_EDIT_MODELS) {
+    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
     })
 
-    for (const model of IMAGE_EDIT_MODELS) {
-      const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: geminiBody,
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        console.warn(`[Gemini Image/${model}] failed ${res.status}:`, errText.slice(0, 120))
-        continue
-      }
-
-      const data = (await res.json()) as {
-        candidates?: Array<{
-          content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
-        }>
-        error?: { message: string }
-      }
-
-      if (data.error) {
-        console.warn(`[Gemini Image/${model}] error:`, data.error.message.slice(0, 120))
-        continue
-      }
-
-      const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
-      if (!imagePart?.inlineData) {
-        console.warn(`[Gemini Image/${model}] no image part in response`)
-        continue
-      }
-
-      console.log(`[Gemini Image/${model}] generate-room success`)
-      return json({
-        imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
-      })
+    if (!res.ok) {
+      lastErr = await res.text()
+      console.warn(`[Gemini Image/${model}] failed ${res.status}:`, lastErr.slice(0, 120))
+      continue
     }
 
-    console.warn('[Gemini Image] all models failed or at quota — trying fal.ai fallback')
-  }
-
-  // ── Fallback: fal.ai FLUX dev image-to-image ──────────────────────────────
-  if (env.FAL_AI_KEY) {
-    try {
-      const falPrompt = `Professional interior design photograph. Redesign this room in ${styleDesc} style. Remove all existing furniture completely and replace with beautiful ${style} style furniture. ${productLine} Preserve the exact room structure: walls, floor, ceiling, windows, doors, and all architectural features. Maintain the same camera angle and lighting direction. Photorealistic, high quality, professional interior photography, 8k.`
-
-      const mimeType = detectMimeType(imageBase64)
-
-      const falRes = await fetch('https://fal.run/fal-ai/flux/dev/image-to-image', {
-        method: 'POST',
-        headers: {
-          Authorization: `Key ${env.FAL_AI_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: falPrompt,
-          image_url: `data:${mimeType};base64,${imageBase64}`,
-          strength: 0.85,
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-          enable_safety_checker: false,
-        }),
-      })
-
-      if (falRes.ok) {
-        const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
-        const imageUrl = falData.images?.[0]?.url
-        if (imageUrl) {
-          console.log('[fal.ai] generate-room success via FLUX img2img')
-          return json({ imageUrl })
-        }
-        console.warn('[fal.ai] img2img: no image in response', JSON.stringify(falData).slice(0, 200))
-      } else {
-        const errText = await falRes.text()
-        console.warn('[fal.ai] img2img failed:', falRes.status, errText.slice(0, 200))
-      }
-    } catch (err) {
-      console.warn('[fal.ai] img2img exception:', String(err).slice(0, 120))
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
+      }>
+      error?: { message: string }
     }
+
+    if (data.error) {
+      lastErr = data.error.message
+      console.warn(`[Gemini Image/${model}] error:`, lastErr.slice(0, 120))
+      continue
+    }
+
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+    if (!imagePart?.inlineData) {
+      lastErr = 'no image part in response'
+      console.warn(`[Gemini Image/${model}] no image part`)
+      continue
+    }
+
+    console.log(`[Gemini Image/${model}] generate-room success`)
+    return json({
+      imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+    })
   }
 
-  // All image generation failed — return original image so the flow continues
-  console.warn('[generate-room] all image models failed, returning original as fallback')
+  // All Gemini image models failed — return original image so the flow continues
+  console.warn('[generate-room] all Gemini image models failed:', lastErr.slice(0, 200))
   return json({
     imageUrl: `data:${detectMimeType(imageBase64)};base64,${imageBase64}`,
     fallback: true,
   })
-}
-
-// ─── generate-template: fal.ai text-to-image ─────────────────────────────
-
-const ROOM_TYPE_PROMPTS: Record<string, string> = {
-  'living-room':
-    'modern living room interior, stylish sofa, coffee table, floor lamp, hardwood floor, large window, professional interior photography, natural golden light, 8k',
-  'bedroom':
-    'modern bedroom interior, king size bed with linen bedding, bedside tables, soft warm lighting, wooden floor, professional interior photography, 8k',
-  'dining-room':
-    'elegant dining room interior, round dining table, 4 chairs, statement pendant lighting, natural wood accents, professional interior photography, 8k',
-  'kitchen':
-    'modern kitchen interior, white shaker cabinets, marble countertop, kitchen island with bar stools, pendant lights, professional interior photography, 8k',
-  'home-office':
-    'home office interior, large wooden desk, ergonomic chair, bookshelves, plants, floor-to-ceiling windows, natural light, professional photography, 8k',
-  'kids-room':
-    'children bedroom interior, single bed with colourful duvet, study desk, wooden toy shelf, pastel walls, professional interior photography, 8k',
-}
-
-async function handleGenerateTemplate(request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as GenerateTemplateBody
-  const { roomType, style } = body
-
-  if (!roomType) {
-    return json({ error: 'Missing required field: roomType' }, 400)
-  }
-
-  const base   = ROOM_TYPE_PROMPTS[roomType] ?? `${roomType} interior, professional photography, 8k`
-  const prompt = style ? `${base}, ${STYLE_DESCRIPTIONS[style] ?? style} aesthetic` : base
-  const negative = 'people, text, watermark, blurry, low quality, cartoon, distorted'
-
-  const falRes = await fetch('https://fal.run/fal-ai/flux/dev', {
-    method: 'POST',
-    headers: {
-      Authorization: `Key ${env.FAL_AI_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      negative_prompt: negative,
-      image_size: 'landscape_4_3',
-      num_inference_steps: 24,
-      guidance_scale: 3.5,
-      num_images: 1,
-      enable_safety_checker: false,
-    }),
-  })
-
-  if (!falRes.ok) {
-    const err = await falRes.text()
-    return json({ error: 'Template generation failed', detail: err }, 502)
-  }
-
-  const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
-  if (falData.error) return json({ error: falData.error }, 502)
-  const imageUrl = falData.images?.[0]?.url
-  if (!imageUrl) return json({ error: 'No image returned' }, 502)
-
-  return json({ imageUrl })
 }
 
 // ─── Main fetch handler ───────────────────────────────────────────────────
@@ -526,8 +420,6 @@ export default {
       res = await handleAnalyzeRoom(request, env)
     } else if (url.pathname === '/api/generate-room' && request.method === 'POST') {
       res = await handleGenerateRoom(request, env)
-    } else if (url.pathname === '/api/generate-template' && request.method === 'POST') {
-      res = await handleGenerateTemplate(request, env)
     } else if (url.pathname === '/api/locate-products' && request.method === 'POST') {
       res = await handleLocateProducts(request, env)
     } else if (url.pathname === '/api/health') {
