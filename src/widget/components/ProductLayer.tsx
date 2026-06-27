@@ -18,6 +18,7 @@ export function ProductLayer({ item }: Props) {
   const setStoreHover = useCanvasStore((s) => s.setHovered)
   const activeItemId  = useCanvasStore((s) => s.activeItemId)
 
+  const roomAIGenerated = useCanvasStore((s) => s.roomAIGenerated)
   const dragging = useRef(false)
   const dragStart = useRef({ mx: 0, my: 0, ix: 0, iy: 0 })
 
@@ -31,8 +32,9 @@ export function ProductLayer({ item }: Props) {
   const isActive = activeItemId === item.id
   const isHighlighted = isActive || hovered
 
-  // Build overlay URL using Vite base path
-  const overlayUrl = product.overlayUrl
+  // Show PNG overlay only when Gemini redesigned the room.
+  // When falling back to original photo, overlays are catalog images that look bad.
+  const overlayUrl = (roomAIGenerated && product.overlayUrl)
     ? `${import.meta.env.BASE_URL}${product.overlayUrl}`
     : null
 

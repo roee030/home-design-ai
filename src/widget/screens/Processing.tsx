@@ -45,6 +45,7 @@ export function Processing({ tenant }: Props) {
   const { uploadedImageUrl, selectedStyle, budget, goTo, setGeneratedImage, setStyleDescription, setHasAIAnalysis } =
     useWidgetStore()
   const setCanvasItems = useCanvasStore((s) => s.setItems)
+  const setRoomAIGenerated = useCanvasStore((s) => s.setRoomAIGenerated)
   const resetCanvas = useCanvasStore((s) => s.reset)
 
   const [phase, setPhase] = useState<Phase>('loading-image')
@@ -79,8 +80,10 @@ export function Processing({ tenant }: Props) {
         try {
           const generatedResult = await generateRoom({ imageBase64, style: selectedStyle })
           finalImageUrl = generatedResult.imageUrl
-          // Need to re-encode generated image so Gemini analyses what the user sees
-          analysisBase64 = await imageUrlToBase64(finalImageUrl)
+          const isAIRoom = !generatedResult.fallback
+          setRoomAIGenerated(isAIRoom)
+          // Re-encode generated image so Gemini analyses what the user will see
+          if (isAIRoom) analysisBase64 = await imageUrlToBase64(finalImageUrl)
         } catch (genErr) {
           logger.warn('Room generation failed — analysing original uploaded image', { err: String(genErr) })
           // analysisBase64 already = imageBase64 (original), finalImageUrl = uploadedImageUrl

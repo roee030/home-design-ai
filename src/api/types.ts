@@ -29,4 +29,5 @@ export interface GenerateRoomParams {
 
 export interface GenerateRoomResult {
   imageUrl: string
+  fallback?: boolean  // true = Gemini image gen failed, imageUrl is the original photo
 }
