@@ -3,7 +3,6 @@ import { useWidgetStore } from '@/stores/widgetStore'
 import { analytics } from '@/utils/analytics'
 import { RoomUpload } from './screens/RoomUpload'
 import { StyleSelector } from './screens/StyleSelector'
-import { BudgetInput } from './screens/BudgetInput'
 import { Processing } from './screens/Processing'
 import { CanvasEditor } from './screens/CanvasEditor'
 import type { TenantConfig } from '@/types'
@@ -17,7 +16,6 @@ interface Props {
 const SCREEN_TITLES: Record<string, string> = {
   upload:     'Design My Room',
   style:      'Choose a Style',
-  budget:     'Set Your Budget',
   processing: '',
   canvas:     'Your AI Design',
 }
@@ -36,11 +34,11 @@ export function Widget({ tenant, fullPage }: Props) {
   }
 
   const handleBack = () => {
-    const prev: Record<string, string> = { style: 'upload', budget: 'style', canvas: 'upload' }
+    const prev: Record<string, string> = { style: 'upload', canvas: 'upload' }
     if (prev[screen]) goTo(prev[screen] as typeof screen)
   }
 
-  const canGoBack   = ['style', 'budget', 'canvas'].includes(screen)
+  const canGoBack   = ['style', 'canvas'].includes(screen)
   const isFullScreen = screen === 'canvas' || screen === 'processing'
 
   const panelClass = [
@@ -111,7 +109,6 @@ export function Widget({ tenant, fullPage }: Props) {
                 >
                   {screen === 'upload'     && <RoomUpload tenant={tenant} />}
                   {screen === 'style'      && <StyleSelector tenant={tenant} />}
-                  {screen === 'budget'     && <BudgetInput tenant={tenant} />}
                   {screen === 'processing' && <Processing tenant={tenant} />}
                   {screen === 'canvas'     && <CanvasEditor tenant={tenant} />}
                 </motion.div>

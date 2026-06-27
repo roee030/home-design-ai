@@ -176,7 +176,7 @@ export function CanvasEditor({ tenant }: Props) {
 
         {/* Hint badge */}
         <div className={styles.hintBadge}>
-          <span>✦</span> Hover pins · Swap colors · Drag to reposition
+          <span>✦</span> Click pins for product details
         </div>
       </div>
 

@@ -1,7 +1,6 @@
 export interface AnalyzeRoomParams {
   imageBase64: string
   style: string
-  budget: number
 }
 
 export interface AIProductPlacement {

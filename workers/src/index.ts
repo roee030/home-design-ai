@@ -55,7 +55,6 @@ interface CatalogProduct {
 interface AnalyzeRoomBody {
   imageBase64: string
   style: string
-  budget: number
   catalog: CatalogProduct[]
 }
 
@@ -102,7 +101,7 @@ function geminiUrl(model: string, key: string): string {
 
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
-  const { imageBase64, style, budget, catalog } = body
+  const { imageBase64, style, catalog } = body
 
   if (!imageBase64 || !style || !catalog?.length) {
     return json({ error: 'Missing required fields: imageBase64, style, catalog' }, 400)
@@ -131,13 +130,11 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
 
 Analyse the uploaded room photo and select the best products from the catalog for a ${styleDesc} redesign.
 
-Budget: ₪${budget}
 Catalog (JSON):
 ${JSON.stringify(catalogSummary, null, 2)}
 
 Instructions:
-• Select 4–5 products that best fit the "${style}" aesthetic
-• Total price must not exceed ₪${budget}
+• Select 4–5 products that best fit the "${style}" aesthetic and suit this room type
 • Identify existing furniture in the photo and place the catalog items at those exact positions
 • x = left edge of bounding box as % of image WIDTH (0 = left, 100 = right)
 • y = top edge of bounding box as % of image HEIGHT (0 = top, 100 = bottom)

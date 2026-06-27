@@ -42,7 +42,7 @@ const PHASE_PROGRESS: Record<Phase, number> = {
 interface Props { tenant: TenantConfig }
 
 export function Processing({ tenant }: Props) {
-  const { uploadedImageUrl, selectedStyle, budget, goTo, setGeneratedImage, setStyleDescription, setHasAIAnalysis } =
+  const { uploadedImageUrl, selectedStyle, goTo, setGeneratedImage, setStyleDescription, setHasAIAnalysis } =
     useWidgetStore()
   const setCanvasItems = useCanvasStore((s) => s.setItems)
   const setRoomAIGenerated = useCanvasStore((s) => s.setRoomAIGenerated)
@@ -91,7 +91,7 @@ export function Processing({ tenant }: Props) {
 
         // ── 3. Analyze whichever image we ended up with ─────────────────
         setPhase('analyzing')
-        const analysisResult = await analyzeRoom({ imageBase64: analysisBase64, style: selectedStyle, budget })
+        const analysisResult = await analyzeRoom({ imageBase64: analysisBase64, style: selectedStyle })
 
         // ── 3. Apply product placements ─────────────────────────────────
         setPhase('matching')
