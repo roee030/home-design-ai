@@ -311,7 +311,7 @@ Return ONLY valid JSON:
   return json({ error: 'locate-products failed' }, 502)
 }
 
-// ─── generate-room: Gemini image editing (remove old furniture, add new) ──────
+// ─── generate-room: Gemini image editing → fal.ai FLUX img2img fallback ──────
 
 async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as GenerateRoomBody
@@ -321,16 +321,14 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
     return json({ error: 'Missing required fields: imageBase64, style' }, 400)
   }
 
-  if (!env.GEMINI_API_KEY) {
-    return json({ error: 'GEMINI_KEY_INVALID' }, 502)
-  }
-
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
   const productLine = products?.length
     ? `Include these specific furniture pieces: ${products.join(', ')}.`
     : ''
 
-  const editPrompt = `You are an expert interior designer and photo editor.
+  // ── Try Gemini image editing models first ──────────────────────────────────
+  if (env.GEMINI_API_KEY) {
+    const editPrompt = `You are an expert interior designer and photo editor.
 
 Edit this room photo to redesign it in ${styleDesc} style.
 
@@ -344,68 +342,108 @@ Instructions:
 
 Return only the edited room photo.`
 
-  // Models that support image input → image output (editing)
-  const IMAGE_EDIT_MODELS = [
-    'gemini-2.0-flash-exp',
-    'gemini-2.0-flash-preview-image-generation',
-    'gemini-2.5-flash-preview-image-generation',
-  ]
+    const IMAGE_EDIT_MODELS = [
+      'gemini-2.0-flash-exp',
+      'gemini-2.0-flash-preview-image-generation',
+      'gemini-2.5-flash-preview-image-generation',
+    ]
 
-  const requestBody = JSON.stringify({
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
-        { text: editPrompt },
-      ],
-    }],
-    generationConfig: {
-      responseModalities: ['IMAGE'],
-      temperature: 0.3,
-    },
-  })
-
-  let lastErr = ''
-  for (const model of IMAGE_EDIT_MODELS) {
-    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: requestBody,
+    const geminiBody = JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
+          { text: editPrompt },
+        ],
+      }],
+      generationConfig: {
+        responseModalities: ['IMAGE'],
+        temperature: 0.3,
+      },
     })
 
-    if (!res.ok) {
-      lastErr = await res.text()
-      console.warn(`[Gemini Image/${model}] failed ${res.status}:`, lastErr.slice(0, 120))
-      continue
+    for (const model of IMAGE_EDIT_MODELS) {
+      const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: geminiBody,
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        console.warn(`[Gemini Image/${model}] failed ${res.status}:`, errText.slice(0, 120))
+        continue
+      }
+
+      const data = (await res.json()) as {
+        candidates?: Array<{
+          content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
+        }>
+        error?: { message: string }
+      }
+
+      if (data.error) {
+        console.warn(`[Gemini Image/${model}] error:`, data.error.message.slice(0, 120))
+        continue
+      }
+
+      const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+      if (!imagePart?.inlineData) {
+        console.warn(`[Gemini Image/${model}] no image part in response`)
+        continue
+      }
+
+      console.log(`[Gemini Image/${model}] generate-room success`)
+      return json({
+        imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+      })
     }
 
-    const data = (await res.json()) as {
-      candidates?: Array<{
-        content: { parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> }
-      }>
-      error?: { message: string }
-    }
-
-    if (data.error) {
-      lastErr = data.error.message
-      console.warn(`[Gemini Image/${model}] error:`, lastErr.slice(0, 120))
-      continue
-    }
-
-    const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
-    if (!imagePart?.inlineData) {
-      lastErr = 'no image part in response'
-      console.warn(`[Gemini Image/${model}] no image part`)
-      continue
-    }
-
-    console.log(`[Gemini Image/${model}] generate-room success`)
-    return json({
-      imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
-    })
+    console.warn('[Gemini Image] all models failed or at quota — trying fal.ai fallback')
   }
 
-  // All Gemini image models failed — return original image so the flow continues
-  console.warn('[Gemini Image] all models failed, returning original image:', lastErr.slice(0, 200))
+  // ── Fallback: fal.ai FLUX dev image-to-image ──────────────────────────────
+  if (env.FAL_AI_KEY) {
+    try {
+      const falPrompt = `Professional interior design photograph. Redesign this room in ${styleDesc} style. Remove all existing furniture completely and replace with beautiful ${style} style furniture. ${productLine} Preserve the exact room structure: walls, floor, ceiling, windows, doors, and all architectural features. Maintain the same camera angle and lighting direction. Photorealistic, high quality, professional interior photography, 8k.`
+
+      const mimeType = detectMimeType(imageBase64)
+
+      const falRes = await fetch('https://fal.run/fal-ai/flux/dev/image-to-image', {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${env.FAL_AI_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: falPrompt,
+          image_url: `data:${mimeType};base64,${imageBase64}`,
+          strength: 0.85,
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
+          enable_safety_checker: false,
+        }),
+      })
+
+      if (falRes.ok) {
+        const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
+        const imageUrl = falData.images?.[0]?.url
+        if (imageUrl) {
+          console.log('[fal.ai] generate-room success via FLUX img2img')
+          return json({ imageUrl })
+        }
+        console.warn('[fal.ai] img2img: no image in response', JSON.stringify(falData).slice(0, 200))
+      } else {
+        const errText = await falRes.text()
+        console.warn('[fal.ai] img2img failed:', falRes.status, errText.slice(0, 200))
+      }
+    } catch (err) {
+      console.warn('[fal.ai] img2img exception:', String(err).slice(0, 120))
+    }
+  }
+
+  // All image generation failed — return original image so the flow continues
+  console.warn('[generate-room] all image models failed, returning original as fallback')
   return json({
     imageUrl: `data:${detectMimeType(imageBase64)};base64,${imageBase64}`,
     fallback: true,
