@@ -36,6 +36,14 @@ export function ProductLayer({ item }: Props) {
     ? `${import.meta.env.BASE_URL}${product.overlayUrl}`
     : null
 
+  // CSS 3D perspective: rotate furniture PNG to match room viewing angle.
+  // viewAngle > 0 → furniture faces right (show left side) → rotateY(angle)
+  // viewAngle < 0 → furniture faces left (show right side) → rotateY(angle)
+  const angle = item.viewAngle ?? 0
+  const perspectiveTransform = angle !== 0
+    ? `perspective(900px) rotateY(${angle}deg)`
+    : undefined
+
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     dragging.current = false
@@ -83,6 +91,7 @@ export function ProductLayer({ item }: Props) {
             width:  `${item.width}%`,
             height: `${item.height}%`,
             zIndex: item.zIndex,
+            ...(perspectiveTransform ? { transform: perspectiveTransform, transformOrigin: 'bottom center' } : {}),
           }}
         >
           <img

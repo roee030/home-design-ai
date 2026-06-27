@@ -64,6 +64,7 @@ export interface CanvasItem {
   height: number
   zIndex: number
   rotation: number
+  viewAngle?: number  // CSS 3D perspective rotation from AI (degrees, 0 = frontal)
 }
 
 export interface TenantConfig {

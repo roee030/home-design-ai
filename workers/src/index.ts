@@ -1,7 +1,11 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Ai = any
+
 export interface Env {
   GEMINI_API_KEY: string
   FAL_AI_KEY: string
   ALLOWED_ORIGIN?: string
+  AI: Ai
 }
 
 // ─── CORS ─────────────────────────────────────────────────────────────────
@@ -62,6 +66,7 @@ interface AnalyzeRoomBody {
 interface GenerateRoomBody {
   imageBase64: string
   style: string
+  products?: string[]
 }
 
 interface GenerateTemplateBody {
@@ -69,7 +74,7 @@ interface GenerateTemplateBody {
   style?: string
 }
 
-// ─── Gemini: room analysis + product matching ─────────────────────────────
+// ─── Style maps ───────────────────────────────────────────────────────────
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
   japandi: 'Japandi (Japanese-Scandinavian fusion) — natural wood, neutral tones, zen simplicity, organic shapes',
@@ -81,6 +86,28 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
   contemporary: 'Contemporary Modern — clean lines, neutral palette, statement lighting, minimalist luxury',
 }
 
+const STYLE_PROMPTS: Record<string, string> = {
+  japandi:
+    'same room layout and furniture arrangement, japandi interior design style, natural wood furniture, neutral beige linen, washi paper light, zen minimalism, professional interior photography, 8k uhd, soft morning light',
+  'mid-century':
+    'same room layout and furniture arrangement, mid century modern style, warm walnut wood, mustard yellow accent chair, geometric shapes, retro floor lamp, professional photography, warm golden light, 8k',
+  scandinavian:
+    'same room layout and furniture arrangement, scandinavian interior design, light birch furniture, white walls, grey wool throw, hygge candles, cosy minimalism, professional interior photography, 8k',
+  industrial:
+    'same room layout and furniture arrangement, industrial loft interior, exposed concrete wall, black steel frame shelves, Edison pendant bulbs, reclaimed wood table, moody atmospheric lighting, 8k',
+  coastal:
+    'same room layout and furniture arrangement, coastal beach house style, whitewashed driftwood furniture, navy and white stripe cushions, rattan pendant light, breezy sheer curtains, golden afternoon light, 8k',
+  bohemian:
+    'same room layout and furniture arrangement, bohemian eclectic style, layered kilim rugs, macrame wall hanging, rattan chair, terracotta pots with plants, warm earthy tones, golden hour light, 8k',
+  contemporary:
+    'same room layout and furniture arrangement, contemporary modern interior, sleek marble coffee table, grey linen sofa, geometric brass floor lamp, minimalist art print, soft diffused studio light, 8k',
+}
+
+const NEGATIVE_PROMPT =
+  'blurry, low quality, distorted, people, text, watermark, ugly, oversaturated, cartoon, painting'
+
+// ─── Utilities ────────────────────────────────────────────────────────────
+
 function detectMimeType(base64: string): string {
   if (base64.startsWith('/9j/')) return 'image/jpeg'
   if (base64.startsWith('iVBORw0KGgo')) return 'image/png'
@@ -88,6 +115,21 @@ function detectMimeType(base64: string): string {
   if (base64.startsWith('UklGR')) return 'image/webp'
   return 'image/jpeg'
 }
+
+function base64ToBytes(base64: string): number[] {
+  const binary = atob(base64)
+  const bytes = new Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
+// ─── Gemini: room analysis + product matching ─────────────────────────────
 
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
@@ -103,7 +145,6 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
 
-  // Send catalog as compact summary (no image URLs needed)
   const catalogSummary = catalog.map((p) => ({
     id: p.id,
     name: p.name,
@@ -119,7 +160,7 @@ async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> 
 
   const prompt = `You are an expert AI interior designer working for a furniture retailer.
 
-You will analyse the uploaded room photo and select the best products from the catalog for a ${styleDesc} redesign.
+Analyse the uploaded room photo and select the best products from the catalog for a ${styleDesc} redesign.
 
 Budget: ₪${budget}
 Catalog (JSON):
@@ -127,14 +168,19 @@ ${JSON.stringify(catalogSummary, null, 2)}
 
 Instructions:
 • Select 4–5 products that best fit the "${style}" aesthetic
-• Total price (basePrice + priceDelta) must not exceed ₪${budget}
-• Look at the room photo to estimate realistic furniture positions
-• x = pin center as % of image WIDTH (0 = left edge, 100 = right edge)
-• y = pin center as % of image HEIGHT (0 = top edge, 100 = bottom edge)
-• width / height = bounding box of the furniture item in image %
+• Total price must not exceed ₪${budget}
+• Identify existing furniture in the photo and place the catalog items at those exact positions
+• x = left edge of bounding box as % of image WIDTH (0 = left, 100 = right)
+• y = top edge of bounding box as % of image HEIGHT (0 = top, 100 = bottom)
+• width / height = bounding box size as % of image
+• viewAngle = horizontal rotation angle in degrees of how the furniture is oriented:
+    0 = frontal/straight-on view
+    negative = furniture is turned LEFT (you see its right side)
+    positive = furniture is turned RIGHT (you see its left side)
+    typical range: -45 to +45
 • zIndex: foreground items (rugs) = 1, mid (sofas, chairs) = 2–3, background (lamps, art) = 4–5
 • Pick the variant whose colour best matches the style palette
-• Write styleDescription in English, 2–3 sentences
+• Write styleDescription in English, 2–3 sentences describing the redesign
 
 Return ONLY valid JSON — no markdown fences, no explanation:
 {
@@ -146,14 +192,14 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       "y": number,
       "width": number,
       "height": number,
-      "zIndex": number
+      "zIndex": number,
+      "viewAngle": number
     }
   ],
   "totalPrice": number,
   "styleDescription": "string"
 }`
 
-  // Try multiple models — quota limit on one may not apply to another
   const ANALYSIS_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
@@ -171,7 +217,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     generationConfig: {
       response_mime_type: 'application/json',
       temperature: 0.2,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 1200,
     },
   })
 
@@ -209,35 +255,45 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     }
   }
 
-  // All models exhausted
   console.error('[Gemini] all models failed, last error:', lastErr.slice(0, 200))
   return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
-// ─── fal.ai: AI room image generation (img2img) ───────────────────────────
+// ─── Cloudflare Workers AI: img2img (FREE, no API key needed) ────────────
 
-// Prefixed with layout-preservation instruction so fal.ai keeps room structure
-const STYLE_PROMPTS: Record<string, string> = {
-  japandi:
-    'same room layout and furniture arrangement, japandi interior design style, natural wood furniture, neutral beige linen, washi paper light, zen minimalism, professional interior photography, 8k uhd, soft morning light',
-  'mid-century':
-    'same room layout and furniture arrangement, mid century modern style, warm walnut wood, mustard yellow accent chair, geometric shapes, retro floor lamp, professional photography, warm golden light, 8k',
-  scandinavian:
-    'same room layout and furniture arrangement, scandinavian interior design, light birch furniture, white walls, grey wool throw, hygge candles, cosy minimalism, professional interior photography, 8k',
-  industrial:
-    'same room layout and furniture arrangement, industrial loft interior, exposed concrete wall, black steel frame shelves, Edison pendant bulbs, reclaimed wood table, moody atmospheric lighting, 8k',
-  coastal:
-    'same room layout and furniture arrangement, coastal beach house style, whitewashed driftwood furniture, navy and white stripe cushions, rattan pendant light, breezy sheer curtains, golden afternoon light, 8k',
-  bohemian:
-    'same room layout and furniture arrangement, bohemian eclectic style, layered kilim rugs, macrame wall hanging, rattan chair, terracotta pots with plants, warm earthy tones, golden hour light, 8k',
-  contemporary:
-    'same room layout and furniture arrangement, contemporary modern interior, sleek marble coffee table, grey linen sofa, geometric brass floor lamp, minimalist art print, soft diffused studio light, 8k',
+async function generateRoomWithWorkersAI(imageBase64: string, style: string, env: Env): Promise<string> {
+  if (!env.AI) throw new Error('Workers AI binding not available')
+
+  const stylePrompt = STYLE_PROMPTS[style] ?? `${style} interior design, professional photography, realistic lighting, 8k`
+
+  const imageBytes = base64ToBytes(imageBase64)
+
+  const result = await env.AI.run('@cf/runwayml/stable-diffusion-v1-5-img2img', {
+    prompt: stylePrompt,
+    negative_prompt: NEGATIVE_PROMPT,
+    image: imageBytes,
+    strength: 0.55,      // 0 = no change, 1 = full generation — 0.55 keeps room structure
+    num_steps: 20,
+    guidance: 7.5,
+  })
+
+  // Workers AI returns ReadableStream or Uint8Array
+  let imageData: Uint8Array
+  if (result instanceof ReadableStream) {
+    imageData = new Uint8Array(await new Response(result).arrayBuffer())
+  } else if (result instanceof Uint8Array) {
+    imageData = result
+  } else {
+    throw new Error(`Workers AI unexpected response type: ${typeof result}`)
+  }
+
+  if (!imageData.length) throw new Error('Workers AI returned empty image')
+
+  const base64Out = bytesToBase64(imageData)
+  return `data:image/png;base64,${base64Out}`
 }
 
-const NEGATIVE_PROMPT =
-  'blurry, low quality, distorted, people, text, watermark, ugly, oversaturated, cartoon, painting'
-
-// ─── Gemini image-to-image generation ────────────────────────────────────────
+// ─── Gemini image generation (secondary attempt) ──────────────────────────
 
 async function generateRoomWithGemini(imageBase64: string, style: string, env: Env): Promise<string> {
   if (!env.GEMINI_API_KEY) throw new Error('No Gemini key')
@@ -273,10 +329,7 @@ Rules:
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: imgBody })
 
-    if (!res.ok) {
-      console.warn(`[Gemini Image/${model}] failed ${res.status}`)
-      continue
-    }
+    if (!res.ok) { console.warn(`[Gemini Image/${model}] failed ${res.status}`); continue }
 
     const data = (await res.json()) as {
       candidates?: Array<{
@@ -297,7 +350,7 @@ Rules:
   throw new Error('Gemini image generation: all models failed')
 }
 
-// ─── fal.ai image-to-image generation (fallback) ─────────────────────────────
+// ─── fal.ai (tertiary attempt) ────────────────────────────────────────────
 
 async function generateRoomWithFal(imageBase64: string, style: string, env: Env): Promise<string> {
   const prompt = STYLE_PROMPTS[style] ?? `${style} interior design, professional photography, high quality, realistic lighting`
@@ -326,16 +379,14 @@ async function generateRoomWithFal(imageBase64: string, style: string, env: Env)
     throw new Error(`fal.ai ${falRes.status}: ${err}`)
   }
 
-  const falData = (await falRes.json()) as {
-    images?: Array<{ url: string }>
-    error?: string
-  }
-
+  const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
   if (falData.error) throw new Error(falData.error)
   const imageUrl = falData.images?.[0]?.url
   if (!imageUrl) throw new Error('fal.ai returned no image')
   return imageUrl
 }
+
+// ─── generate-room handler ────────────────────────────────────────────────
 
 async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as GenerateRoomBody
@@ -345,16 +396,25 @@ async function handleGenerateRoom(request: Request, env: Env): Promise<Response>
     return json({ error: 'Missing required fields: imageBase64, style' }, 400)
   }
 
-  // Try Gemini image generation first — same API key, no extra cost
+  // 1st: Cloudflare Workers AI img2img (free, built-in, no extra key)
+  try {
+    const imageUrl = await generateRoomWithWorkersAI(imageBase64, style, env)
+    console.log('[Workers AI] img2img success')
+    return json({ imageUrl })
+  } catch (err) {
+    console.warn('[Workers AI] failed, trying Gemini:', String(err).slice(0, 120))
+  }
+
+  // 2nd: Gemini image generation
   try {
     const imageUrl = await generateRoomWithGemini(imageBase64, style, env)
     console.log('[Gemini Image] success')
     return json({ imageUrl })
-  } catch (geminiErr) {
-    console.warn('[Gemini Image] failed, trying fal.ai:', String(geminiErr))
+  } catch (err) {
+    console.warn('[Gemini Image] failed, trying fal.ai:', String(err).slice(0, 80))
   }
 
-  // Fallback: fal.ai
+  // 3rd: fal.ai
   try {
     const imageUrl = await generateRoomWithFal(imageBase64, style, env)
     console.log('[fal.ai] success')
@@ -413,17 +473,11 @@ async function handleGenerateTemplate(request: Request, env: Env): Promise<Respo
 
   if (!falRes.ok) {
     const err = await falRes.text()
-    console.error('[fal.ai template] error:', falRes.status, err)
     return json({ error: 'Template generation failed', detail: err }, 502)
   }
 
-  const falData = (await falRes.json()) as {
-    images?: Array<{ url: string; width: number; height: number }>
-    error?: string
-  }
-
+  const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
   if (falData.error) return json({ error: falData.error }, 502)
-
   const imageUrl = falData.images?.[0]?.url
   if (!imageUrl) return json({ error: 'fal.ai returned no image' }, 502)
 

@@ -106,6 +106,7 @@ export function Processing({ tenant }: Props) {
           height: clamp(p.height ?? 20, 8, 40),
           zIndex: p.zIndex ?? i + 1,
           rotation: 0,
+          viewAngle: p.viewAngle,
         }))
 
         resetCanvas()

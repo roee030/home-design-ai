@@ -12,6 +12,7 @@ export interface AIProductPlacement {
   width: number
   height: number
   zIndex: number
+  viewAngle?: number  // horizontal rotation in degrees (0=frontal, ±45=side view)
 }
 
 export interface AnalyzeRoomResult {

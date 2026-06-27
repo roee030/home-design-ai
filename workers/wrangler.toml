@@ -10,6 +10,9 @@ compatibility_flags = ["nodejs_compat"]
 #   GEMINI_API_KEY   — Google AI Studio  https://aistudio.google.com/apikey
 #   FAL_AI_KEY       — fal.ai            https://fal.ai/dashboard/keys
 
+[ai]
+binding = "AI"
+
 [vars]
 ALLOWED_ORIGIN = "https://roee030.github.io"
 
