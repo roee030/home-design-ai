@@ -1,11 +1,7 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Ai = any
-
 export interface Env {
   GEMINI_API_KEY: string
   FAL_AI_KEY: string
   ALLOWED_ORIGIN?: string
-  AI: Ai
 }
 
 // ─── CORS ─────────────────────────────────────────────────────────────────
@@ -66,7 +62,7 @@ interface AnalyzeRoomBody {
 interface GenerateRoomBody {
   imageBase64: string
   style: string
-  products?: string[]
+  products?: string[]  // optional list of product names to include in the redesign
 }
 
 interface GenerateTemplateBody {
@@ -74,7 +70,7 @@ interface GenerateTemplateBody {
   style?: string
 }
 
-// ─── Style maps ───────────────────────────────────────────────────────────
+// ─── Style descriptions ────────────────────────────────────────────────────
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
   japandi: 'Japandi (Japanese-Scandinavian fusion) — natural wood, neutral tones, zen simplicity, organic shapes',
@@ -86,26 +82,6 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
   contemporary: 'Contemporary Modern — clean lines, neutral palette, statement lighting, minimalist luxury',
 }
 
-const STYLE_PROMPTS: Record<string, string> = {
-  japandi:
-    'same room layout and furniture arrangement, japandi interior design style, natural wood furniture, neutral beige linen, washi paper light, zen minimalism, professional interior photography, 8k uhd, soft morning light',
-  'mid-century':
-    'same room layout and furniture arrangement, mid century modern style, warm walnut wood, mustard yellow accent chair, geometric shapes, retro floor lamp, professional photography, warm golden light, 8k',
-  scandinavian:
-    'same room layout and furniture arrangement, scandinavian interior design, light birch furniture, white walls, grey wool throw, hygge candles, cosy minimalism, professional interior photography, 8k',
-  industrial:
-    'same room layout and furniture arrangement, industrial loft interior, exposed concrete wall, black steel frame shelves, Edison pendant bulbs, reclaimed wood table, moody atmospheric lighting, 8k',
-  coastal:
-    'same room layout and furniture arrangement, coastal beach house style, whitewashed driftwood furniture, navy and white stripe cushions, rattan pendant light, breezy sheer curtains, golden afternoon light, 8k',
-  bohemian:
-    'same room layout and furniture arrangement, bohemian eclectic style, layered kilim rugs, macrame wall hanging, rattan chair, terracotta pots with plants, warm earthy tones, golden hour light, 8k',
-  contemporary:
-    'same room layout and furniture arrangement, contemporary modern interior, sleek marble coffee table, grey linen sofa, geometric brass floor lamp, minimalist art print, soft diffused studio light, 8k',
-}
-
-const NEGATIVE_PROMPT =
-  'blurry, low quality, distorted, people, text, watermark, ugly, oversaturated, cartoon, painting'
-
 // ─── Utilities ────────────────────────────────────────────────────────────
 
 function detectMimeType(base64: string): string {
@@ -116,20 +92,13 @@ function detectMimeType(base64: string): string {
   return 'image/jpeg'
 }
 
-function base64ToBytes(base64: string): number[] {
-  const binary = atob(base64)
-  const bytes = new Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
+// ─── Gemini helpers ────────────────────────────────────────────────────────
+
+function geminiUrl(model: string, key: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
-}
-
-// ─── Gemini: room analysis + product matching ─────────────────────────────
+// ─── analyze-room: Gemini vision → product placement + view angles ─────────
 
 async function handleAnalyzeRoom(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as AnalyzeRoomBody
@@ -223,30 +192,33 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
   let lastErr = ''
   for (const model of ANALYSIS_MODELS) {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`
-    const geminiRes = await fetch(geminiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
+    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+    })
 
-    if (!geminiRes.ok) {
-      lastErr = await geminiRes.text()
-      console.warn(`[Gemini/${model}] failed ${geminiRes.status}:`, lastErr.slice(0, 120))
+    if (!res.ok) {
+      lastErr = await res.text()
+      console.warn(`[Gemini/${model}] failed ${res.status}:`, lastErr.slice(0, 120))
       continue
     }
 
-    const geminiData = (await geminiRes.json()) as {
+    const data = (await res.json()) as {
       candidates?: Array<{ content: { parts: Array<{ text: string }> } }>
       error?: { message: string }
     }
 
-    if (geminiData.error) {
-      lastErr = geminiData.error.message
+    if (data.error) {
+      lastErr = data.error.message
       console.warn(`[Gemini/${model}] API error:`, lastErr.slice(0, 120))
       continue
     }
 
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
     try {
       const result = JSON.parse(rawText)
-      console.log(`[Gemini/${model}] success`)
+      console.log(`[Gemini/${model}] analyze-room success`)
       return json(result)
     } catch {
       lastErr = `JSON parse failed: ${rawText.slice(0, 80)}`
@@ -255,81 +227,76 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     }
   }
 
-  console.error('[Gemini] all models failed, last error:', lastErr.slice(0, 200))
+  console.error('[Gemini] all analyze models failed:', lastErr.slice(0, 200))
   return json({ error: 'AI analysis failed', detail: lastErr }, 502)
 }
 
-// ─── Cloudflare Workers AI: img2img (FREE, no API key needed) ────────────
+// ─── generate-room: Gemini image editing (remove old furniture, add new) ──────
 
-async function generateRoomWithWorkersAI(imageBase64: string, style: string, env: Env): Promise<string> {
-  if (!env.AI) throw new Error('Workers AI binding not available')
+async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as GenerateRoomBody
+  const { imageBase64, style, products } = body
 
-  const stylePrompt = STYLE_PROMPTS[style] ?? `${style} interior design, professional photography, realistic lighting, 8k`
-
-  const imageBytes = base64ToBytes(imageBase64)
-
-  const result = await env.AI.run('@cf/runwayml/stable-diffusion-v1-5-img2img', {
-    prompt: stylePrompt,
-    negative_prompt: NEGATIVE_PROMPT,
-    image: imageBytes,
-    strength: 0.55,      // 0 = no change, 1 = full generation — 0.55 keeps room structure
-    num_steps: 20,
-    guidance: 7.5,
-  })
-
-  // Workers AI returns ReadableStream or Uint8Array
-  let imageData: Uint8Array
-  if (result instanceof ReadableStream) {
-    imageData = new Uint8Array(await new Response(result).arrayBuffer())
-  } else if (result instanceof Uint8Array) {
-    imageData = result
-  } else {
-    throw new Error(`Workers AI unexpected response type: ${typeof result}`)
+  if (!imageBase64 || !style) {
+    return json({ error: 'Missing required fields: imageBase64, style' }, 400)
   }
 
-  if (!imageData.length) throw new Error('Workers AI returned empty image')
-
-  const base64Out = bytesToBase64(imageData)
-  return `data:image/png;base64,${base64Out}`
-}
-
-// ─── Gemini image generation (secondary attempt) ──────────────────────────
-
-async function generateRoomWithGemini(imageBase64: string, style: string, env: Env): Promise<string> {
-  if (!env.GEMINI_API_KEY) throw new Error('No Gemini key')
+  if (!env.GEMINI_API_KEY) {
+    return json({ error: 'GEMINI_KEY_INVALID' }, 502)
+  }
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? style
-  const prompt = `You are an expert interior designer. Redesign this room in ${styleDesc} style.
+  const productLine = products?.length
+    ? `Include these specific furniture pieces: ${products.join(', ')}.`
+    : ''
 
-Rules:
-- Keep the EXACT same room layout, camera angle, perspective and room dimensions
-- Keep windows, doors and architectural elements in the same positions
-- Replace all furniture, materials and decor with beautiful ${style} style items
-- Preserve natural lighting direction and intensity
-- Output a professional interior design photograph quality image
-- Do NOT add people, text, logos or watermarks`
+  const editPrompt = `You are an expert interior designer and photo editor.
 
-  const IMAGE_GEN_MODELS = [
-    'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image',
+Edit this room photo to redesign it in ${styleDesc} style.
+
+Instructions:
+- REMOVE all existing furniture (beds, chairs, sofas, tables, lamps, rugs, shelves, decor)
+- REPLACE them with beautiful ${style} style furniture. ${productLine}
+- KEEP EXACTLY: the room's walls, floor, ceiling, windows, doors, and architectural features
+- PRESERVE: the original camera angle, perspective, and natural lighting direction
+- The result must look like a professional interior design photograph — photorealistic, high quality
+- Do NOT add people, text, logos, or watermarks
+
+Return only the edited room photo.`
+
+  // Models that support image input → image output (editing)
+  const IMAGE_EDIT_MODELS = [
+    'gemini-2.0-flash-exp',
     'gemini-2.0-flash-preview-image-generation',
+    'gemini-2.5-flash-preview-image-generation',
   ]
 
-  const imgBody = JSON.stringify({
+  const requestBody = JSON.stringify({
     contents: [{
       parts: [
         { inline_data: { mime_type: detectMimeType(imageBase64), data: imageBase64 } },
-        { text: prompt },
+        { text: editPrompt },
       ],
     }],
-    generationConfig: { responseModalities: ['IMAGE'], temperature: 0.35 },
+    generationConfig: {
+      responseModalities: ['IMAGE'],
+      temperature: 0.3,
+    },
   })
 
-  for (const model of IMAGE_GEN_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: imgBody })
+  let lastErr = ''
+  for (const model of IMAGE_EDIT_MODELS) {
+    const res = await fetch(geminiUrl(model, env.GEMINI_API_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+    })
 
-    if (!res.ok) { console.warn(`[Gemini Image/${model}] failed ${res.status}`); continue }
+    if (!res.ok) {
+      lastErr = await res.text()
+      console.warn(`[Gemini Image/${model}] failed ${res.status}:`, lastErr.slice(0, 120))
+      continue
+    }
 
     const data = (await res.json()) as {
       candidates?: Array<{
@@ -338,95 +305,34 @@ Rules:
       error?: { message: string }
     }
 
-    if (data.error) { console.warn(`[Gemini Image/${model}] error:`, data.error.message); continue }
+    if (data.error) {
+      lastErr = data.error.message
+      console.warn(`[Gemini Image/${model}] error:`, lastErr.slice(0, 120))
+      continue
+    }
 
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
-    if (!imagePart?.inlineData) { console.warn(`[Gemini Image/${model}] no image part`); continue }
+    if (!imagePart?.inlineData) {
+      lastErr = 'no image part in response'
+      console.warn(`[Gemini Image/${model}] no image part`)
+      continue
+    }
 
-    console.log(`[Gemini Image/${model}] success`)
-    return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
+    console.log(`[Gemini Image/${model}] generate-room success`)
+    return json({
+      imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+    })
   }
 
-  throw new Error('Gemini image generation: all models failed')
-}
-
-// ─── fal.ai (tertiary attempt) ────────────────────────────────────────────
-
-async function generateRoomWithFal(imageBase64: string, style: string, env: Env): Promise<string> {
-  const prompt = STYLE_PROMPTS[style] ?? `${style} interior design, professional photography, high quality, realistic lighting`
-
-  const falRes = await fetch('https://fal.run/fal-ai/flux/dev/image-to-image', {
-    method: 'POST',
-    headers: {
-      Authorization: `Key ${env.FAL_AI_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      image_url: `data:image/jpeg;base64,${imageBase64}`,
-      prompt,
-      negative_prompt: NEGATIVE_PROMPT,
-      strength: 0.18,
-      num_inference_steps: 28,
-      guidance_scale: 3.5,
-      num_images: 1,
-      enable_safety_checker: false,
-      output_format: 'jpeg',
-    }),
+  // All Gemini image models failed — return original image so the flow continues
+  console.warn('[Gemini Image] all models failed, returning original image:', lastErr.slice(0, 200))
+  return json({
+    imageUrl: `data:${detectMimeType(imageBase64)};base64,${imageBase64}`,
+    fallback: true,
   })
-
-  if (!falRes.ok) {
-    const err = await falRes.text()
-    throw new Error(`fal.ai ${falRes.status}: ${err}`)
-  }
-
-  const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
-  if (falData.error) throw new Error(falData.error)
-  const imageUrl = falData.images?.[0]?.url
-  if (!imageUrl) throw new Error('fal.ai returned no image')
-  return imageUrl
 }
 
-// ─── generate-room handler ────────────────────────────────────────────────
-
-async function handleGenerateRoom(request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as GenerateRoomBody
-  const { imageBase64, style } = body
-
-  if (!imageBase64 || !style) {
-    return json({ error: 'Missing required fields: imageBase64, style' }, 400)
-  }
-
-  // 1st: Cloudflare Workers AI img2img (free, built-in, no extra key)
-  try {
-    const imageUrl = await generateRoomWithWorkersAI(imageBase64, style, env)
-    console.log('[Workers AI] img2img success')
-    return json({ imageUrl })
-  } catch (err) {
-    console.warn('[Workers AI] failed, trying Gemini:', String(err).slice(0, 120))
-  }
-
-  // 2nd: Gemini image generation
-  try {
-    const imageUrl = await generateRoomWithGemini(imageBase64, style, env)
-    console.log('[Gemini Image] success')
-    return json({ imageUrl })
-  } catch (err) {
-    console.warn('[Gemini Image] failed, trying fal.ai:', String(err).slice(0, 80))
-  }
-
-  // 3rd: fal.ai
-  try {
-    const imageUrl = await generateRoomWithFal(imageBase64, style, env)
-    console.log('[fal.ai] success')
-    return json({ imageUrl })
-  } catch (falErr) {
-    const errMsg = String(falErr)
-    console.error('[fal.ai] error:', errMsg)
-    return json({ error: 'Image generation failed', detail: errMsg }, 502)
-  }
-}
-
-// ─── fal.ai: text-to-image room template generation ──────────────────────
+// ─── generate-template: fal.ai text-to-image ─────────────────────────────
 
 const ROOM_TYPE_PROMPTS: Record<string, string> = {
   'living-room':
@@ -453,6 +359,7 @@ async function handleGenerateTemplate(request: Request, env: Env): Promise<Respo
 
   const base   = ROOM_TYPE_PROMPTS[roomType] ?? `${roomType} interior, professional photography, 8k`
   const prompt = style ? `${base}, ${STYLE_DESCRIPTIONS[style] ?? style} aesthetic` : base
+  const negative = 'people, text, watermark, blurry, low quality, cartoon, distorted'
 
   const falRes = await fetch('https://fal.run/fal-ai/flux/dev', {
     method: 'POST',
@@ -462,7 +369,7 @@ async function handleGenerateTemplate(request: Request, env: Env): Promise<Respo
     },
     body: JSON.stringify({
       prompt,
-      negative_prompt: 'people, text, watermark, blurry, low quality, cartoon, distorted',
+      negative_prompt: negative,
       image_size: 'landscape_4_3',
       num_inference_steps: 24,
       guidance_scale: 3.5,
@@ -479,7 +386,7 @@ async function handleGenerateTemplate(request: Request, env: Env): Promise<Respo
   const falData = (await falRes.json()) as { images?: Array<{ url: string }>; error?: string }
   if (falData.error) return json({ error: falData.error }, 502)
   const imageUrl = falData.images?.[0]?.url
-  if (!imageUrl) return json({ error: 'fal.ai returned no image' }, 502)
+  if (!imageUrl) return json({ error: 'No image returned' }, 502)
 
   return json({ imageUrl })
 }
